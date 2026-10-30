@@ -399,7 +399,8 @@ footer.sheet b{color:var(--ink-2)}
   medida da própria geometria; preencher sobrepõe, para casar com o quadro de áreas da prancha.</div>
 
   <div class="sub">Camadas do desenho</div>
-  <div class="grid2">
+  <div class="grid3">
+    <div class="f"><label for="layEixo">Eixos de referência</label><input type="text" id="layEixo"></div>
     <div class="f"><label for="layViga">Vigas</label><input type="text" id="layViga"></div>
     <div class="f"><label for="layPilar">Pilares</label><input type="text" id="layPilar"></div>
   </div>
@@ -781,6 +782,7 @@ function areaBruta(cfg, areaLiq){
    Cada escritório nomeia as camadas do seu jeito. O padrão abaixo é o do
    AltoQi Eberick; ao importar, o app lista o que achou e deixa remapear. */
 const CAMADAS = {
+  eixo:  ["FO-Eixos"],
   viga:  ["FO-Vigas"],
   pilar: ["FO-Pilares", "FO-Hachuras dos pilares", "FO-Hachura pilar que passa"],
   abert: ["FO-Aberturas", "FO-Elementos cortados"],
@@ -790,7 +792,7 @@ const CAMADAS = {
 };
 const PADRAO_CAMADAS = JSON.parse(JSON.stringify(CAMADAS));
 // palpite quando a prancha vem de outro programa
-const PISTAS = {viga:/viga|beam|vig/i, pilar:/pilar|coluna|column|pil/i,
+const PISTAS = {eixo:/eixo|axis|grid|refer/i, viga:/viga|beam|vig/i, pilar:/pilar|coluna|column|pil/i,
                 abert:/abertur|furo|shaft|vazio|opening|cortad/i,
                 ignora:/selo|tabela|t[íi]tulo|a[çc]o|armadura|hachura|indica|cota|texto|dim|layer|^0$/i};
 const reDe = chave => {
@@ -798,10 +800,12 @@ const reDe = chave => {
   if(!l.length) return /(?!)/;                       // lista vazia: não casa nada
   return new RegExp(l.map(s=>"^"+s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"$").join("|"), "i");
 };
-let LAY_VIGA = reDe("viga"), LAY_PILAR = reDe("pilar"), LAY_ABERT = reDe("abert"), LAY_IGN = reDe("ignora");
+let LAY_VIGA = reDe("viga"), LAY_PILAR = reDe("pilar"), LAY_ABERT = reDe("abert"),
+    LAY_IGN = reDe("ignora"), LAY_EIXO = reDe("eixo");
 let LAY_BLOQ = new RegExp(LAY_VIGA.source+"|"+LAY_PILAR.source+"|"+LAY_ABERT.source, "i");
 function recompilarCamadas(){
-  LAY_VIGA = reDe("viga"); LAY_PILAR = reDe("pilar"); LAY_ABERT = reDe("abert"); LAY_IGN = reDe("ignora");
+  LAY_VIGA = reDe("viga"); LAY_PILAR = reDe("pilar"); LAY_ABERT = reDe("abert");
+  LAY_IGN = reDe("ignora"); LAY_EIXO = reDe("eixo");
   LAY_BLOQ = new RegExp(LAY_VIGA.source+"|"+LAY_PILAR.source+"|"+LAY_ABERT.source, "i");
 }
 // Classifica as camadas de um desenho novo: mantém o que já casa, chuta o resto.
@@ -811,12 +815,12 @@ function mapearCamadas(bruto){
     bruto.arcs.map(a=>a.lay), bruto.txts.map(t=>t.lay)).filter(Boolean))];
   const conhecida = s => Object.keys(PISTAS).some(k=>(CAMADAS[k]||[]).includes(s));
   const novas = todas.filter(s=>!conhecida(s));
-  const achados = {viga:[],pilar:[],abert:[],ignora:[]};
+  const achados = {eixo:[],viga:[],pilar:[],abert:[],ignora:[]};
   novas.forEach(s=>{
-    for(const k of ["viga","pilar","abert"]) if(PISTAS[k].test(s)){ achados[k].push(s); return; }
+    for(const k of ["eixo","viga","pilar","abert"]) if(PISTAS[k].test(s)){ achados[k].push(s); return; }
     if(PISTAS.ignora.test(s)) achados.ignora.push(s);
   });
-  ["viga","pilar","abert","ignora"].forEach(k=>{ CAMADAS[k] = [...new Set(CAMADAS[k].concat(achados[k]))]; });
+  ["eixo","viga","pilar","abert","ignora"].forEach(k=>{ CAMADAS[k] = [...new Set((CAMADAS[k]||[]).concat(achados[k]))]; });
   recompilarCamadas();
   return {todas, achados, semUso: novas.filter(s=>!Object.values(achados).some(a=>a.includes(s)))};
 }
@@ -1412,15 +1416,54 @@ function eixosUteis(vals, eixo, bb, M){
     return false;
   });
 }
+/* --- Eixos de referência ----------------------------------------------
+   Toda cota precisa sair de um eixo do projeto. Usa a camada de eixos
+   quando a prancha tem uma; senão ancora no pilar extremo, que é a
+   referência que sempre existe numa planta de formas. */
+function eixosReferencia(){
+  if(!GEO || !GEO.bb) return null;
+  const bb = GEO.bb;
+  const dentro = (x,y)=> x>=bb.x0&&x<=bb.x1&&y>=bb.y0&&y<=bb.y1;
+  const linhas = (GEO.lines||[]).filter(l=>LAY_EIXO.test(l.lay))
+    .filter(l=>dentro((l.a[0]+l.b[0])/2,(l.a[1]+l.b[1])/2));
+  let refX = null, refY = null, via = "";
+  const vert = linhas.filter(l=>Math.abs(l.b[0]-l.a[0]) < 0.05 && Math.abs(l.b[1]-l.a[1]) > 1);
+  const horiz = linhas.filter(l=>Math.abs(l.b[1]-l.a[1]) < 0.05 && Math.abs(l.b[0]-l.a[0]) > 1);
+  if(vert.length && horiz.length){
+    refX = Math.min(...vert.map(l=>l.a[0]));
+    refY = Math.min(...horiz.map(l=>l.a[1]));
+    via = `camada de eixos do projeto (${vert.length} verticais, ${horiz.length} horizontais)`;
+  } else {
+    const pil = (GEO.polys||[]).filter(p=>LAY_PILAR.test(p.lay)).map(p=>{
+      const xs=p.pts.map(q=>q[0]), ys=p.pts.map(q=>q[1]);
+      return [(Math.min(...xs)+Math.max(...xs))/2, (Math.min(...ys)+Math.max(...ys))/2];
+    }).filter(c=>dentro(c[0],c[1]));
+    if(!pil.length) return null;
+    refX = Math.min(...pil.map(c=>c[0]));
+    refY = Math.min(...pil.map(c=>c[1]));
+    via = `pilar extremo, por falta de camada de eixos (${pil.length} pilares)`;
+  }
+  return {x:refX, y:refY, via, rotX:"EIXO A", rotY:"EIXO 1"};
+}
+
 function gerarCotas(tipo, cfg, layout, rGov){
   if(!GEO || !GEO.bb || !rGov) return [];
   const bb = GEO.bb, M = GEO.mask, horiz = cfg.dirLong==="x";
   const sV = rGov.sViga, sE = rGov.sEsc, sB = rGov.sBarrote;
   const pw = horiz ? cfg.placa.h : cfg.placa.b, ph = horiz ? cfg.placa.b : cfg.placa.h;
   const cad = [];
+  const ref = eixosReferencia();
   const chain = (eixo, passo, off, rot) => {
     const vals = eixosUteis(eixosDe(eixo==="x"?bb.x0:bb.y0, eixo==="x"?bb.x1:bb.y1, passo, off), eixo, bb, M);
-    if(vals.length>1) cad.push({eixo, vals, rot});
+    if(vals.length<2) return;
+    // a cadeia começa no eixo de referência do projeto, não no primeiro elemento
+    if(ref){
+      const r = eixo==="x" ? ref.x : ref.y;
+      if(Math.abs(r - vals[0]) > 0.02) vals.unshift(r);
+      vals.sort((a,b)=>a-b);
+    }
+    cad.push({eixo, vals, rot, ref:ref ? (eixo==="x"?ref.x:ref.y) : null,
+              rotRef:ref ? (eixo==="x"?ref.rotX:ref.rotY) : null});
   };
   if(tipo==="placa"){ chain("x", pw, cfg.offX, "paginação em X"); chain("y", ph, cfg.offY, "paginação em Y"); }
   else if(tipo==="barrote"){
@@ -1444,9 +1487,31 @@ function gerarCotas(tipo, cfg, layout, rGov){
   }
   return cad;
 }
-function desenharCotas(g, mk, path, cad, esc, cx){
+function desenharCotas(g, mk, path, cad, esc, cx, bb){
   if(!cad.length) return;
   const gc = document.createElementNS(SVGNS,"g"); g.appendChild(gc);
+  // eixos de referência, em traço e ponto, atravessando a planta
+  const ref = eixosReferencia();
+  if(ref && bb){
+    const tr = `${0.5*esc} ${0.18*esc} ${0.09*esc} ${0.18*esc}`;
+    [["x",ref.x,ref.rotX],["y",ref.y,ref.rotY]].forEach(([q,v,rot])=>{
+      const e=document.createElementNS(SVGNS,"path");
+      e.setAttribute("d", q==="x" ? `M${v} ${bb.y0-2.2}L${v} ${bb.y1+0.6}` : `M${bb.x0-2.2} ${v}L${bb.x1+0.6} ${v}`);
+      e.setAttribute("fill","none"); e.setAttribute("stroke","var(--accent)");
+      e.setAttribute("stroke-width",0.022*esc); e.setAttribute("stroke-dasharray",tr);
+      e.setAttribute("stroke-opacity",0.85); gc.appendChild(e);
+      const cxp = q==="x" ? v : bb.x1+0.6, cyp = q==="x" ? bb.y1+0.6 : v;
+      const c=document.createElementNS(SVGNS,"circle");
+      c.setAttribute("cx",cxp); c.setAttribute("cy",cyp); c.setAttribute("r",0.42);
+      c.setAttribute("fill","var(--panel)"); c.setAttribute("stroke","var(--accent)");
+      c.setAttribute("stroke-width",0.025*esc); gc.appendChild(c);
+      const t=document.createElementNS(SVGNS,"text");
+      t.setAttribute("transform",`translate(${cxp} ${cyp-0.12}) scale(1 -1)`);
+      t.setAttribute("font-size",0.30*esc); t.setAttribute("font-family","var(--f-num)");
+      t.setAttribute("fill","var(--accent)"); t.setAttribute("text-anchor","middle");
+      t.textContent = rot.split(" ")[1]; gc.appendChild(t);
+    });
+  }
   const lw = 0.018*esc, tick = 0.09, fs = 0.26*esc;
   const txt = (x,y,t,ang,anchor) => {
     const e = document.createElementNS(SVGNS,"text");
@@ -1478,17 +1543,19 @@ function desenharCotas(g, mk, path, cad, esc, cx){
       let d = `M${c.vals[0]} ${y}L${c.vals[c.vals.length-1]} ${y}`;
       c.vals.forEach(v=>{ d += `M${v} ${y-tick}L${v} ${y+tick}`; });
       linha(d);
+      // o translate acontece no sistema do desenho, com Y para cima:
+      // a coordenada vai direta, sem espelhar
       for(let i=0;i<c.vals.length-1;i++)
-        txt((c.vals[i]+c.vals[i+1])/2, -(y+0.10), fmt((c.vals[i+1]-c.vals[i])*100,0), -90);
-      txt(c.vals[0]-0.45, -(y-0.02), c.rot, 0, "end");
+        txt((c.vals[i]+c.vals[i+1])/2, y+0.10, fmt((c.vals[i+1]-c.vals[i])*100,0), -90);
+      txt(c.vals[0]-0.45, y-0.02, c.rotRef ? `${c.rotRef} · ${c.rot}` : c.rot, 0, "end");
     } else {
       const x = cx.x0 + 1.9 - dist;
       let d = `M${x} ${c.vals[0]}L${x} ${c.vals[c.vals.length-1]}`;
       c.vals.forEach(v=>{ d += `M${x-tick} ${v}L${x+tick} ${v}`; });
       linha(d);
       for(let i=0;i<c.vals.length-1;i++)
-        txt(x-0.10, -((c.vals[i]+c.vals[i+1])/2), fmt((c.vals[i+1]-c.vals[i])*100,0), 0, "end");
-      txt(x, -(c.vals[c.vals.length-1]+0.45), c.rot, 0);
+        txt(x-0.10, (c.vals[i]+c.vals[i+1])/2, fmt((c.vals[i+1]-c.vals[i])*100,0), 0, "end");
+      txt(x, c.vals[c.vals.length-1]+0.45, c.rotRef ? `${c.rotRef} · ${c.rot}` : c.rot, 0);
     }
   });
 }
@@ -1590,7 +1657,7 @@ function desenharEm(svg, cfg, layout, vis, cota, vw){
         e.textContent=t.s; gm.appendChild(e);
       });
   }
-  if(cota) desenharCotas(g, mk, path, gerarCotas(cota, cfg, layout, ULT.rGov), esc, {x0,y0,w,h});
+  if(cota) desenharCotas(g, mk, path, gerarCotas(cota, cfg, layout, ULT.rGov), esc, {x0,y0,w,h}, bb);
 }
 
 function aplicarZoom(){ desenhar(cfgAtual(), ULT.layout||{placas:[],barrotes:[],longas:[],escoras:[],escVigas:[]}); }
@@ -2565,6 +2632,7 @@ function reprocessarEscala(){
 }
 // --- camadas
 function mostrarCamadas(extra){
+  $("layEixo").value = (CAMADAS.eixo||[]).join(", ");
   $("layViga").value = CAMADAS.viga.join(", ");
   $("layPilar").value = CAMADAS.pilar.join(", ");
   $("layAbert").value = CAMADAS.abert.join(", ");
@@ -2574,7 +2642,7 @@ function mostrarCamadas(extra){
 }
 function lerCamadasUI(){
   const sp = s => s.split(",").map(x=>x.trim()).filter(Boolean);
-  CAMADAS.viga=sp(val("layViga")); CAMADAS.pilar=sp(val("layPilar"));
+  CAMADAS.eixo=sp(val("layEixo")); CAMADAS.viga=sp(val("layViga")); CAMADAS.pilar=sp(val("layPilar"));
   CAMADAS.abert=sp(val("layAbert")); CAMADAS.ignora=sp(val("layIgn"));
   recompilarCamadas();
 }
