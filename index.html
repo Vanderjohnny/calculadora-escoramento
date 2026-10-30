@@ -1,0 +1,2427 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escoramento NBR 15696</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<style>
+/* Layout: prancha de escoramento em tela cheia, barra de controles enxuta por cima
+   e o memorial técnico recolhido em gavetas embaixo. */
+:root{
+  --bg:#eceef1; --panel:#ffffff; --ink:#15181d; --ink-2:#4e5661; --ink-3:#7c8694;
+  --line:#d4d9e0; --line-2:#e6eaef;
+  --accent:#1a4f8a; --accent-soft:#e7eef7;
+  --ok:#1b6b42; --ok-soft:#e4f1e9; --warn:#8a5a00; --warn-soft:#fbf0d9; --bad:#9b2226; --bad-soft:#fae7e7;
+  --plan:#b3bcc7; --plan-2:#8d98a6; --pilar:#5d6774;
+  --esc:#c2410c; --longa:#1a4f8a; --barr:#0f766e; --placa:#64748b;
+  --f-disp:"Archivo Narrow",'Arial Narrow',system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"Courier New",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101317; --panel:#1a1e24; --ink:#e8ecf1; --ink-2:#a9b3c0; --ink-3:#7c8694;
+  --line:#2e353e; --line-2:#242a31; --accent:#6fa8e8; --accent-soft:#1d2a3a;
+  --ok:#67c895; --ok-soft:#16281f; --warn:#e0b05a; --warn-soft:#2b2214; --bad:#ef8a8d; --bad-soft:#2d1a1b;
+  --plan:#4a5460; --plan-2:#69758a; --pilar:#8b97a6;
+  --esc:#fb8a4c; --longa:#6fa8e8; --barr:#45b8ac; --placa:#8b97a6; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#101317; --panel:#1a1e24; --ink:#e8ecf1; --ink-2:#a9b3c0; --ink-3:#7c8694;
+  --line:#2e353e; --line-2:#242a31; --accent:#6fa8e8; --accent-soft:#1d2a3a;
+  --ok:#67c895; --ok-soft:#16281f; --warn:#e0b05a; --warn-soft:#2b2214; --bad:#ef8a8d; --bad-soft:#2d1a1b;
+  --plan:#4a5460; --plan-2:#69758a; --pilar:#8b97a6;
+  --esc:#fb8a4c; --longa:#6fa8e8; --barr:#45b8ac; --placa:#8b97a6; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 48px;max-width:1600px;margin:0 auto}
+
+/* ---- barra superior ---- */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--panel);border-bottom:1px solid var(--line);
+  margin-left:calc(-1*max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1*max(16px,env(safe-area-inset-right,0px)));margin-bottom:14px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.top-in{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:10px;max-width:1600px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+h1{font-family:var(--f-disp);font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:0}
+h1 small{display:block;font-family:var(--f-num);font-size:10.5px;font-weight:400;letter-spacing:.01em;text-transform:none;color:var(--ink-3);margin-top:1px}
+
+/* ---- faixa de entrada essencial ---- */
+.entrada{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;background:var(--panel);
+  border:1px solid var(--line);border-radius:4px;padding:12px 14px;margin-bottom:12px}
+label{display:block;font-size:11px;font-weight:500;color:var(--ink-2);margin-bottom:3px}
+label .u{color:var(--ink-3);font-weight:400}
+input[type=text],input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:3px;
+  padding:6px 7px;font-family:var(--f-num);font-size:12.5px;color:inherit}
+select{font-family:var(--f-body)}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ---- barra de resumo ---- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;background:var(--line-2);
+  border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-bottom:12px}
+.kpi{background:var(--panel);padding:9px 12px}
+.kpi .k{font-family:var(--f-disp);font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.kpi .v{font-family:var(--f-num);font-size:18px;font-weight:600;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .s{font-family:var(--f-num);font-size:10px;color:var(--ink-3)}
+
+/* ---- prancha ---- */
+.prancha{background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-bottom:14px}
+.ctrl{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line-2);font-size:12px}
+.ctrl .g{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ctrl .sep{width:1px;height:18px;background:var(--line);flex:none}
+.chk{display:inline-flex;gap:5px;align-items:center;font-size:11.5px;color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.chk input{accent-color:var(--accent);margin:0}
+.chk b{font-family:var(--f-num);font-size:10px;padding:0 4px;border-radius:2px}
+button{cursor:pointer;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:5px 10px;
+  font-family:inherit;font-size:12px;font-weight:500;color:inherit}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{filter:brightness(1.12);color:#fff}
+button.ghost{background:none;border-color:transparent;color:var(--accent);padding:3px 5px;font-size:11.5px}
+.viewport{position:relative;background:var(--panel);height:min(72vh,720px);min-height:380px;overflow:hidden;cursor:grab;touch-action:none}
+.viewport.drag{cursor:grabbing}
+.viewport svg{display:block;width:100%;height:100%}
+.vazio{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  text-align:center;padding:24px;color:var(--ink-3);font-size:13px}
+.vazio b{color:var(--ink);font-size:15px;font-family:var(--f-disp);letter-spacing:.04em;text-transform:uppercase}
+.zoomhint{position:absolute;right:10px;bottom:8px;font-family:var(--f-num);font-size:10px;color:var(--ink-3);
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:2px 6px;pointer-events:none}
+.legenda{display:flex;flex-wrap:wrap;gap:4px 18px;padding:8px 12px;border-top:1px solid var(--line-2);font-size:11.5px;color:var(--ink-2)}
+.legenda span{display:inline-flex;gap:6px;align-items:center}
+.legenda i{width:16px;height:0;border-top-width:2px;border-top-style:solid;flex:none}
+.legenda u{width:9px;height:9px;border-radius:50%;border:2px solid var(--esc);text-decoration:none;flex:none}
+.legenda s{width:14px;height:10px;border:1px dashed var(--placa);text-decoration:none;flex:none}
+
+/* ---- gavetas técnicas ---- */
+details.gav{background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:8px}
+details.gav>summary{cursor:pointer;padding:11px 14px;font-family:var(--f-disp);font-size:12px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-2);list-style:none;display:flex;justify-content:space-between;gap:10px;align-items:center}
+details.gav>summary::-webkit-details-marker{display:none}
+details.gav>summary::before{content:"▸";font-family:var(--f-body);color:var(--accent);font-size:11px}
+details.gav[open]>summary::before{content:"▾"}
+details.gav>summary span.c{font-family:var(--f-num);font-size:10.5px;font-weight:400;color:var(--ink-3);letter-spacing:0;text-transform:none;margin-left:auto}
+.gav-body{padding:0 14px 14px}
+.sub{font-family:var(--f-disp);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:16px 0 8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.f{margin-bottom:9px}
+.hint{font-size:11px;color:var(--ink-3);margin-top:3px;line-height:1.45}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line-2);font-variant-numeric:tabular-nums}
+th{font-family:var(--f-disp);font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:bottom}
+th:first-child,td:first-child{text-align:left}
+td.num,th.num{font-family:var(--f-num)}
+tbody tr:hover{background:var(--accent-soft)}
+tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:none}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.pill{display:inline-block;font-family:var(--f-num);font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:2px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.note{background:var(--accent-soft);border-left:3px solid var(--accent);padding:8px 11px;font-size:12px;line-height:1.5;
+  border-radius:0 3px 3px 0;margin-bottom:10px}
+.note.w{background:var(--warn-soft);border-color:var(--warn)}
+.mem{font-family:var(--f-num);font-size:11.5px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap}
+.mem b{color:var(--ink);font-weight:600}
+.legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px 18px;font-size:12px}
+.legend-grid div{display:flex;gap:8px;align-items:baseline}
+.legend-grid .sw{font-family:var(--f-num);font-size:10.5px;color:var(--accent);min-width:60px;font-weight:600}
+.elrow,.elhead{display:grid;grid-template-columns:1fr .9fr .9fr .9fr 24px;gap:5px;align-items:center}
+.elrow{margin-bottom:5px}
+.elrow input,.elrow select{padding:4px 6px;font-size:11.5px}
+.elhead{font-family:var(--f-disp);font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
+.elrow .del{border:none;background:none;color:var(--ink-3);padding:1px;font-size:15px;line-height:1}
+.elrow .del:hover{color:var(--bad)}
+.dropzone{border:1.5px dashed var(--line);border-radius:4px;padding:12px;text-align:center;color:var(--ink-3);font-size:11.5px;background:var(--bg)}
+.dropzone.hot{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+footer.sheet{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:13px;font-size:11px;color:var(--ink-3);line-height:1.6}
+footer.sheet b{color:var(--ink-2)}
+@media (max-width:620px){.grid2,.grid3{grid-template-columns:1fr}.viewport{height:58vh}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---- folha de impressão: prancha em A3 paisagem + memorial ---- */
+#folha{display:none}
+@media print{
+  @page{size:A3 landscape;margin:8mm}
+  body{background:#fff;color:#000;font-size:10px}
+  header.top,.entrada,.ctrl,.legenda,details.gav,footer.sheet,.zoomhint,#naoimp{display:none!important}
+  .wrap{max-width:none;padding:0}
+  .kpis{grid-template-columns:repeat(6,1fr);border-color:#000;margin:0 0 4mm}
+  .kpi{background:#fff;padding:2mm}.kpi .v{font-size:13px}
+  .prancha{border:1px solid #000;border-radius:0;margin:0;page-break-after:always}
+  .viewport{height:175mm;min-height:0}
+  #folha{display:block;font-family:var(--f-num);font-size:9px;line-height:1.5;color:#000;column-count:3;column-gap:8mm}
+  #folha h3{font-family:var(--f-disp);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    margin:0 0 2mm;padding-bottom:1mm;border-bottom:1px solid #000;column-span:all}
+  #folha .bl{break-inside:avoid;margin-bottom:3mm;white-space:pre-wrap}
+  #folha table{font-size:8.5px}#folha th,#folha td{border-color:#999;padding:1mm 1.5mm}
+}
+</style>
+
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <h1>Escoramento NBR 15696
+      <small id="stamp">—</small></h1>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="expZone"></span>
+      <button class="ghost" id="themeBtn" title="Alternar tema">◐ tema</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ====== ENTRADA ESSENCIAL ====== -->
+  <div class="entrada">
+    <div><label for="preset">Prancha</label><select id="preset">
+      <option value="hrd207">Exemplo — forma de pavimento tipo</option>
+      <option value="hrd520">Exemplo — pavimento inferior</option>
+      <option value="mont">Laje trelicada — exemplo</option>
+      <option value="vazio">(em branco)</option>
+    </select></div>
+    <div><label for="pavLaje">Pavimento a concretar</label><select id="pavLaje"></select></div>
+    <div><label for="pavApoio">Pavimento de apoio</label><select id="pavApoio"></select></div>
+    <div><label for="sysVert">Estrutura de apoio</label><select id="sysVert"></select></div>
+    <div><label for="lajeGov">Pano que dita a grade</label><select id="lajeGov"></select></div>
+    <div><label for="escala">Escala do desenho</label><select id="escala">
+      <option value="auto">Detectar pelos pilares</option>
+      <option value="1">1 unidade = 1 m</option>
+      <option value="0.5">1 unidade = 0,50 m</option>
+      <option value="0.01">Centímetros</option>
+      <option value="0.001">Milímetros</option>
+      <option value="custom">Informar fator</option>
+    </select></div>
+    <div><label for="escalaFator">1 unidade vale <span class="u">(m)</span></label>
+      <input type="number" id="escalaFator" value="1" step="0.001"></div>
+    <div><label>Importar prancha</label>
+      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <!-- ====== PRANCHA DE ESCORAMENTO ====== -->
+  <div class="prancha">
+    <div class="ctrl" id="ctrl3d" hidden>
+      <div class="g">
+        <button id="to2d">← planta 2D</button>
+        <label class="chk"><input type="checkbox" id="v3Laje" checked> laje</label>
+        <label class="chk"><input type="checkbox" id="v3Viga" checked> vigas</label>
+        <label class="chk"><input type="checkbox" id="v3Pil" checked> pilares</label>
+        <label class="chk"><input type="checkbox" id="v3Placa" checked> placas</label>
+        <label class="chk"><input type="checkbox" id="v3Barr" checked> barrotes</label>
+        <label class="chk"><input type="checkbox" id="v3Long" checked> longarinas</label>
+        <label class="chk"><input type="checkbox" id="v3Esc" checked> escoras</label>
+      </div>
+      <div class="sep"></div>
+      <div class="g">
+        <button id="geral3">vista geral</button>
+        <button id="dentro3">entrar no modelo</button>
+        <label class="chk">lente <input type="range" id="fov3" min="25" max="95" value="55" style="width:72px" title="abertura da lente"></label>
+        <label class="chk">recorte <input type="number" id="rec3" value="60" step="2" min="4" max="120"
+          style="width:60px;padding:3px 5px;font-size:11.5px" title="lado da janela em metros; menor = mais leve"> m</label>
+        <span id="n3d" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)"></span>
+      </div>
+    </div>
+    <div class="ctrl" id="ctrl2d">
+      <div class="g">
+        <button id="to3d" class="primary">ver em 3D →</button>
+        <label class="chk"><input type="checkbox" id="vPlan" checked> planta</label>
+        <label class="chk"><input type="checkbox" id="vMarc"> marcas</label>
+        <label class="chk"><input type="checkbox" id="vPlaca" checked> placas</label>
+        <label class="chk"><input type="checkbox" id="vBarr" checked> barrotes</label>
+        <label class="chk"><input type="checkbox" id="vLong" checked> longarinas</label>
+        <label class="chk"><input type="checkbox" id="vEsc" checked> escoras</label>
+        <label class="chk"><input type="checkbox" id="vVigaEsc" checked> escoras de viga</label>
+      </div>
+      <div class="sep"></div>
+      <div class="g">
+        <label class="chk">longarinas
+          <select id="dirLong" style="width:auto;padding:3px 5px;font-size:11.5px">
+            <option value="x">horizontais</option><option value="y">verticais</option></select></label>
+        <label class="chk">origem
+          <input type="number" id="offX" value="0" step="0.05" style="width:62px;padding:3px 5px;font-size:11.5px" title="deslocamento da grade em X (m)">
+          <input type="number" id="offY" value="0" step="0.05" style="width:62px;padding:3px 5px;font-size:11.5px" title="deslocamento da grade em Y (m)"></label>
+        <label class="chk">placa
+          <input type="text" id="placaDim" value="200x100" style="width:76px;padding:3px 5px;font-size:11.5px" title="dimensão da placa em cm, largura x altura"></label>
+      </div>
+      <div class="sep"></div>
+      <div class="g">
+        <button id="fit">enquadrar</button>
+        <span id="expBtn"></span>
+      </div>
+    </div>
+    <div class="viewport" id="vp">
+      <svg id="svg" aria-label="Prancha de escoramento"></svg>
+      <div class="vazio" id="vazio" hidden>
+        <b>Sem geometria de planta</b>
+        <div>A grade de escoramento precisa do desenho. No AutoCAD rode <span style="font-family:var(--f-num)">DXFOUT</span>
+        e solte o DXF acima — o PDF plotado traz só as marcas, sem geometria.</div>
+      </div>
+      <div class="zoomhint" id="zoomhint">roda = zoom · arrastar = mover · clicar = centro do 3D</div>
+    </div>
+    <div class="legenda" id="legenda"></div>
+  </div>
+
+  <!-- ====== GAVETAS TÉCNICAS ====== -->
+  <details class="gav"><summary>Lajes — cadeia de cálculo <span class="c" id="cLajes"></span></summary><div class="gav-body" id="pLajes"></div></details>
+  <details class="gav"><summary>Vigas <span class="c" id="cVigas"></span></summary><div class="gav-body" id="pVigas"></div></details>
+  <details class="gav"><summary>Fôrmas verticais — Anexo D <span class="c" id="cVert"></span></summary><div class="gav-body" id="pVert"></div></details>
+  <details class="gav"><summary>Estabilidade horizontal <span class="c" id="cEstab"></span></summary><div class="gav-body" id="pEstab"></div></details>
+  <details class="gav"><summary>Quantitativo <span class="c" id="cQuant"></span></summary><div class="gav-body" id="pQuant"></div></details>
+  <details class="gav"><summary>Orçamento — venda ou aluguel <span class="c" id="cOrc"></span></summary><div class="gav-body" id="pOrc"></div></details>
+  <details class="gav"><summary>Desforma e reescoramento <span class="c"></span></summary><div class="gav-body" id="pDesf"></div></details>
+  <details class="gav"><summary>Memória de cálculo <span class="c">texto corrido</span></summary><div class="gav-body"><div class="mem" id="pMem"></div></div></details>
+  <details class="gav"><summary>Ações, materiais e catálogo <span class="c">configuração</span></summary><div class="gav-body" id="pCfg"></div></details>
+  <details class="gav"><summary>Elementos da prancha <span class="c" id="cEls"></span></summary><div class="gav-body" id="pEls"></div></details>
+
+  <div id="folha"></div>
+</div>
+
+<!-- configuração completa, movida para a gaveta por script -->
+<template id="tplCfg">
+  <div class="sub">Níveis e fôrma</div>
+  <div class="grid3">
+    <div class="f"><label for="nivLaje">Nível da laje <span class="u">(m)</span></label><input type="number" id="nivLaje" value="23.52" step="0.01"></div>
+    <div class="f"><label for="nivApoio">Nível do apoio <span class="u">(m)</span></label><input type="number" id="nivApoio" value="20.46" step="0.01"></div>
+    <div class="f"><label for="eForma">Fôrma+barrote+viga <span class="u">(cm)</span></label><input type="number" id="eForma" value="26" step="1"></div>
+  </div>
+  <div class="note" id="peDireito">—</div>
+
+  <div class="sub">Sistema</div>
+  <div class="grid3">
+    <div class="f"><label for="sysViga">Longarina</label><select id="sysViga"></select></div>
+    <div class="f"><label for="sysBarrote">Travessa / barrote</label><select id="sysBarrote"></select></div>
+    <div class="f"><label for="sysForma">Fôrma de contato</label><select id="sysForma"></select></div>
+  </div>
+  <div class="grid3">
+    <div class="f"><label for="sysBase">Base de apoio</label><select id="sysBase"></select></div>
+    <div class="f"><label for="travamento">Travamento horizontal</label>
+      <select id="travamento"><option value="1.0">a cada 1,00 m</option><option value="1.5" selected>a cada 1,50 m</option><option value="2.0">a cada 2,00 m</option></select></div>
+    <div class="f"><label for="nVaos">Vãos dos elementos</label>
+      <select id="nVaos"><option value="3" selected>3 ou mais</option><option value="2">2 vãos</option><option value="1">isostático</option></select></div>
+  </div>
+  <div class="f"><label for="metodo">Método de cálculo <span class="u">(4.3)</span></label>
+    <select id="metodo">
+      <option value="adm" selected>Tensões admissíveis — ação característica</option>
+      <option value="elu">Estados-limites — ação × γq = 1,4</option></select>
+    <div class="hint">A resistência é sempre a carga de utilização do catálogo (FS 2,0 para escoras, torres e vigas metálicas;
+    2,25 para viga de madeira industrializada) ou f<sub>d</sub> da madeira pela 4.3.1.1. O método só muda a ação, então estados-limites
+    é sempre o resultado mais conservador.</div></div>
+
+  <div class="sub">Ações — NBR 15696 4.2</div>
+  <div class="grid3">
+    <div class="f"><label for="gConc">γ concreto <span class="u">(kN/m³)</span></label><input type="number" id="gConc" value="25" step="0.5"></div>
+    <div class="f"><label for="qTrab">Sobrecarga trabalho <span class="u">(kN/m²)</span></label><input type="number" id="qTrab" value="2.0" step="0.1"></div>
+    <div class="f"><label for="qMin">Carga estática mín. <span class="u">(kN/m²)</span></label><input type="number" id="qMin" value="4.0" step="0.5"></div>
+  </div>
+  <div class="grid3">
+    <div class="f"><label for="gForma">Peso fôrma <span class="u">(kN/m²)</span></label><input type="number" id="gForma" value="0.50" step="0.05"></div>
+    <div class="f"><label for="gEsc">Peso escoramento <span class="u">(kN/m²)</span></label><input type="number" id="gEsc" value="0.15" step="0.05"></div>
+    <div class="f"><label for="qVento">Vento mínimo <span class="u">(kN/m²)</span></label><input type="number" id="qVento" value="0.60" step="0.05"></div>
+  </div>
+  <div class="grid3">
+    <div class="f"><label for="pctH">Horizontal <span class="u">(% de ΣV)</span></label><input type="number" id="pctH" value="5" step="0.5"></div>
+    <div class="f"><label for="flechaDiv">Flecha-limite <span class="u">L/…</span></label><input type="number" id="flechaDiv" value="500" step="50"></div>
+    <div class="f"><label for="fuMeta">Aproveitamento máx. <span class="u">(%)</span></label><input type="number" id="fuMeta" value="85" step="5"></div>
+  </div>
+  <div class="hint">Sobrecarga ≥ 2,0 kN/m² e carga estática total ≥ 4,0 kN/m² (4.2 e); vento ≥ 0,6 kN/m² (4.2 j);
+  horizontal = 5% de ΣV nos dois sentidos (4.2 l); flecha com peso do concreto + 1,0 kN/m², sem coeficiente (4.3.2).
+  O aproveitamento máximo é onde o cálculo para quando a carga do apoio é que limita o espaçamento, em vez de encostar em 100%.</div>
+
+  <div class="sub">Laje nervurada com cubeta</div>
+  <div class="grid3">
+    <div class="f"><label for="cubeta">Cubeta</label><select id="cubeta"></select></div>
+    <div class="f"><label for="capa">Capa <span class="u">(cm)</span></label><input type="number" id="capa" value="5" step="0.5"></div>
+    <div class="f"><label for="hEqMan">h eq. à mão <span class="u">(cm)</span></label><input type="number" id="hEqMan" value="0" step="0.5"></div>
+  </div>
+  <div class="grid2">
+    <div class="f"><label for="cubLado">Lado da cubeta <span class="u">(cm)</span></label><input type="number" id="cubLado" value="80" step="1"></div>
+    <div class="f"><label for="cubMod">Módulo <span class="u">(cm)</span></label><input type="number" id="cubMod" value="92" step="1"></div>
+  </div>
+  <div class="note" id="nervInfo">—</div>
+  <div class="hint"><span style="font-family:var(--f-num)">h_eq = capa + h_nervura · [1 − (lado/módulo)²]</span>.
+  <b>Exemplo com ATEX 800 com módulo de 92 cm</b>, ou seja nervura de 12 cm — decisão de projeto, não valor de
+  catálogo. É o número que define toda a carga de escoramento.</div>
+
+  <div class="sub">Áreas, fôrma vertical e base</div>
+  <div class="grid3">
+    <div class="f"><label for="areaTot">Área de laje <span class="u">(m², líquida)</span></label><input type="number" id="areaTot" value="352" step="1"></div>
+    <div class="f"><label for="compVigasTot">Compr. de vigas <span class="u">(m)</span></label><input type="number" id="compVigasTot" value="350" step="5"></div>
+    <div class="f"><label for="reusoComp">Reaproveitamentos da placa</label><input type="number" id="reusoComp" value="10" step="1"></div>
+  </div>
+  <div class="grid3">
+    <div class="f"><label for="vConc">Velocidade concretagem <span class="u">(m/h)</span></label><input type="number" id="vConc" value="2.0" step="0.5"></div>
+    <div class="f"><label for="consist">Consistência</label>
+      <select id="consist"><option value="C1">C1 — abat. ≤ 20 mm</option><option value="C2">C2 — 20…80</option>
+      <option value="C3" selected>C3 — 80…140</option><option value="C4">C4 — &gt; 140</option><option value="CAA">Auto-adensável</option></select></div>
+    <div class="f"><label for="pressMod">Pressão adotada</label>
+      <select id="pressMod"><option value="hidro" selected>Hidrostática γ·h</option><option value="diag">Diagrama D.1 (aprox.)</option></select></div>
+  </div>
+  <div class="grid3">
+    <div class="f"><label for="tempConc">Temperatura <span class="u">(°C)</span></label><input type="number" id="tempConc" value="25" step="1"></div>
+    <div class="f"><label for="sigSolo">Tensão adm. do apoio <span class="u">(kPa)</span></label><input type="number" id="sigSolo" value="100" step="10"></div>
+    <div class="f"><label for="aBase">Área da base <span class="u">(cm²)</span></label><input type="number" id="aBase" value="225" step="5"></div>
+  </div>
+  <div class="grid2">
+    <div class="f"><label for="reSobre">Sobrecarga evolutiva <span class="u">(kN/m²)</span></label><input type="number" id="reSobre" value="1.0" step="0.1"></div>
+    <div class="f"><label for="reMalha">Malha de reescoramento <span class="u">(m)</span></label><input type="number" id="reMalha" value="2.0" step="0.1"></div>
+  </div>
+  <div class="sub">Área bruta do pavimento</div>
+  <div class="grid2">
+    <div class="f"><label for="areaBrutaMan">Medida em planta <span class="u">(m²)</span></label><input type="number" id="areaBrutaMan" value="0" step="0.01"></div>
+    <div class="f"><label for="perimMan">Perímetro <span class="u">(m)</span></label><input type="number" id="perimMan" value="0" step="0.01"></div>
+  </div>
+  <div class="note" id="areaInfo">—</div>
+  <div class="hint">Três áreas diferentes convivem aqui. A <b>líquida</b> é o que a fôrma cobre entre as vigas, e é sobre ela que a grade
+  de escoras é lançada. A <b>bruta</b> é a laje medida em planta, usada no custo por m² de montagem e no vento. Deixar em zero usa a
+  medida da própria geometria; preencher sobrepõe, para casar com o quadro de áreas da prancha.</div>
+
+  <div class="sub">Camadas do desenho</div>
+  <div class="grid2">
+    <div class="f"><label for="layViga">Vigas</label><input type="text" id="layViga"></div>
+    <div class="f"><label for="layPilar">Pilares</label><input type="text" id="layPilar"></div>
+  </div>
+  <div class="grid2">
+    <div class="f"><label for="layAbert">Aberturas e elementos cortados</label><input type="text" id="layAbert"></div>
+    <div class="f"><label for="layIgn">Ignorar</label><input type="text" id="layIgn"></div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:8px"><button id="layAplicar">Aplicar camadas</button>
+    <button class="ghost" id="layPadrao">voltar ao padrão Eberick</button></div>
+  <div class="note" id="layInfo">—</div>
+  <div class="hint">Separadas por vírgula, nome exato da camada. É aqui que o app se adapta a pranchas de outros escritórios ou de
+  outro programa: as vigas delimitam os panos e dão a largura, os pilares calibram a escala, e as aberturas viram vazios sem escora.
+  Ao importar um DXF o app lista o que achou e chuta a classificação pelo nome.</div>
+
+  <div class="sub">Notas de desforma do projeto</div>
+  <textarea id="desfTxt" style="width:100%;min-height:84px;font-size:12px;background:var(--bg);border:1px solid var(--line);
+    border-radius:3px;padding:7px;color:inherit;font-family:var(--f-body)"></textarea>
+  <div class="hint">Uma por linha, no formato <span style="font-family:var(--f-num)">Elemento: prazo e procedimento</span>.
+  Vêm da prancha de cada obra — o prazo de retirada é do projetista da estrutura de concreto, não desta calculadora.</div>
+
+  <div class="sub">Colar texto da prancha</div>
+  <textarea id="paste" placeholder="L1 h=20&#10;V4 14x88&#10;P3 22x175" style="width:100%;min-height:70px;font-family:var(--f-num);font-size:12px;
+    background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:7px;color:inherit"></textarea>
+  <div style="display:flex;gap:8px;margin-top:7px"><button id="parseBtn">Ler texto</button><button class="ghost" id="clearBtn">limpar elementos</button></div>
+  <div class="hint" id="parseMsg"></div>
+</template>
+
+<script>
+"use strict";
+/* ===================================================================
+   CATÁLOGO — base: de referencia (fornecedor de escoramento,
+   fornecedor de escoramento) + ABNT NBR 15696:2009.
+   =================================================================== */
+const KGF = 9.80665e-3, kgf = v => v*KGF;
+
+const VERTICAIS = {
+  "escora-250":{nome:"Escora metálica 2,50 m", fam:"escora", tab:[[1.40,2400],[1.70,2100],[2.10,1700],[2.40,1400],[2.50,1300]],
+    nota:"Tubo-base roscado + telescópico + luva e pino (A.3.1). Isolada exige tripé ou travamento."},
+  "escora-320":{nome:"Escora metálica 3,20 m", fam:"escora", tab:[[2.10,2400],[2.40,2070],[2.50,1960],[2.80,1635],[3.10,1305],[3.20,1200]],
+    nota:"Faixa 2,10–3,20 m. Regulagem grossa por pino, fina na luva."},
+  "escora-400":{nome:"Escora metálica 4,00 m", fam:"escora", tab:[[2.40,2400],[2.50,2300],[2.80,2100],[3.10,1850],[3.20,1800],[3.60,1500],[4.00,1250]],
+    nota:"Faixa 2,40–4,00 m."},
+  "escora-470":{nome:"Escora metálica 4,70 m", fam:"escora", tab:[[3.10,2400],[3.20,2300],[3.60,1930],[4.00,1550],[4.40,1180],[4.70,900]],
+    nota:"Faixa 3,10–4,70 m. Acima de 4,00 m a capacidade cai rápido — avaliar torre."},
+  "escora-cruzeta":{nome:"Escora + cruzeta (forcado)", fam:"escora", tab:[[2.10,2400],[2.40,2070],[2.50,1960],[2.80,1635],[3.10,1305],[3.20,1200]],
+    nota:"A cruzeta apoia duas longarinas na mesma escora; encunhar as vigas no forcado para eliminar folga."},
+  "torre-painel":{nome:"Torre painel (quadros)", fam:"torre", verticais:4, tabTrav:{1.0:4200,1.5:3300,2.0:1850},
+    nota:"Carga por vertical conforme o travamento horizontal, nas duas direções no plano de flambagem (A.3.2)."},
+  "torre-tubular":{nome:"Torre tubo e braçadeira", fam:"torre", verticais:4, tabTrav:{1.0:3800,1.5:2900,2.0:1650},
+    nota:"Capacidade sensível ao aperto e ao prumo. Valores de catálogo, confirmar com o fornecedor."},
+  "cimbra-multi":{nome:"Cimbramento multidirecional", fam:"torre", verticais:4, tabTrav:{1.0:6000,1.5:4500,2.0:3000},
+    nota:"Nós em roseta, diagonais em todos os níveis. Para pé-direito alto e carga concentrada."},
+  "torre-carga":{nome:"Torre de carga / cimbre pesado", fam:"torre", verticais:4, tabTrav:{1.0:12000,1.5:10000,2.0:8000},
+    nota:"Grandes vãos, marquises e transições. Exige projeto de fundação provisória e monitoramento."},
+  "pontalete":{nome:"Pontalete de madeira", fam:"madeira", secoes:[[6,6],[7.5,7.5],[8,8],[10,10],[12,12]],
+    nota:"Compressão com flambagem pela NBR 7190. O travamento reduz o comprimento de flambagem."},
+  "reescoramento":{nome:"Reescoramento / escoras remanescentes", fam:"reesc", tab:[[2.10,2400],[2.40,2070],[2.50,1960],[2.80,1635],[3.10,1305],[3.20,1200]],
+    nota:"Anexo C: malha ≤ 2,0 × 2,0 m e sobrecarga evolutiva ≥ 1,0 kN/m²."}
+};
+const HORIZ = {
+  "viga-230":{nome:"Viga 2,30 × 0,15 m", tipo:"adm", Madm:kgf(480), Vadm:11.0, EI:450, comp:2.30,
+    nota:"M adm 480 kgf·m conforme o quadro do projeto de referência."},
+  "viga-h20":{nome:"Viga de madeira H20", tipo:"adm", Madm:5.00, Vadm:11.0, EI:450, comp:2.45,
+    nota:"Valores usuais de catálogo. Confirmar com o fornecedor."},
+  "viga-aluminio":{nome:"Viga de alumínio", tipo:"adm", Madm:6.50, Vadm:14.0, EI:620, comp:3.00},
+  "viga-mista":{nome:"Viga mista aço-madeira", tipo:"adm", Madm:4.20, Vadm:9.5, EI:380, comp:2.40},
+  "vigota-metal":{nome:"Vigota metálica", tipo:"adm", Madm:3.60, Vadm:12.0, EI:300, comp:1.60},
+  "barrote-h8":{nome:"Barrote h = 8 cm", tipo:"adm", Madm:kgf(180), Vadm:6.0, EI:95, comp:2.00,
+    nota:"M adm 180 kgf·m; peças de 1,50/2,00/2,30/2,50 m."},
+  "barrote-6x12":{nome:"Barrote madeira 6 × 12", tipo:"mad", b:6, h:12, cls:"D40", comp:4.00},
+  "barrote-75x15":{nome:"Barrote madeira 7,5 × 15", tipo:"mad", b:7.5, h:15, cls:"D40", comp:4.00},
+  "barrote-8x16":{nome:"Barrote madeira 8 × 16", tipo:"mad", b:8, h:16, cls:"D40", comp:4.00},
+  "sarrafo-25x5":{nome:"Sarrafo 2,5 × 5,0 (fundo de viga)", tipo:"mad", b:2.5, h:5, cls:"D40", comp:4.00}
+};
+const FORMAS = {
+  "comp-18":{nome:"Compensado plastificado 18 mm", t:1.8, sigAdm:kgf(68)*1e4, E:kgf(70000)*1e4, tauAdm:700,
+    nota:"E = 70 000 kgf/cm² e σ adm à flexão = 68 kgf/cm², do projeto de referência."},
+  "comp-20":{nome:"Compensado 20 mm", t:2.0, sigAdm:6670, E:7.0e6, tauAdm:700},
+  "comp-15":{nome:"Compensado 15 mm", t:1.5, sigAdm:6670, E:7.0e6, tauAdm:700},
+  "comp-12":{nome:"Compensado 12 mm", t:1.2, sigAdm:6670, E:7.0e6, tauAdm:700},
+  "chapa-metal":{nome:"Painel metálico industrializado", t:0.3, sigAdm:150000, E:200e6, tauAdm:90000},
+  "res-plast":{nome:"Painel plástico / resina", t:1.8, sigAdm:5000, E:4.0e6, tauAdm:500}
+};
+const BASES = {
+  "sapata-30":{nome:"Sapata de 30 cm de rosca", cap:kgf(5500), area:225, nota:"5 500 kgf conforme o projeto de referência."},
+  "base-reg":{nome:"Base regulável com placa", cap:kgf(4000), area:225},
+  "placa":{nome:"Placa de base simples", cap:kgf(3000), area:150},
+  "pranchao":{nome:"Base sobre pranchão", cap:kgf(5500), area:900}
+};
+const MADEIRA = {C20:{fc0k:20,fvk:4,E:3500},C25:{fc0k:25,fvk:5,E:8500},C30:{fc0k:30,fvk:6,E:14500},C40:{fc0k:40,fvk:6,E:19500},
+  D20:{fc0k:20,fvk:4,E:10000},D30:{fc0k:30,fvk:5,E:14500},D40:{fc0k:40,fvk:6,E:19500},D50:{fc0k:50,fvk:7,E:22000},D60:{fc0k:60,fvk:8,E:24500}};
+const KMOD_MAC = 0.9*0.8*0.8;
+const fd_flex_mac = f => KMOD_MAC*f/1.4*1000, fd_cis_mac = f => KMOD_MAC*f/1.8*1000;
+const LAJES_PRE = {15:2.60,16:2.80,18:3.35,20:3.70,25:4.40,30:5.20};
+const CUBETAS = {
+  "atex-800":{nome:"ATEX 800 — nervura 12 cm", lado:80, modulo:92},
+  "atex-750":{nome:"ATEX 750", lado:75, modulo:87},
+  "atex-600":{nome:"ATEX 600", lado:60, modulo:72},
+  "cub-500":{nome:"Cubeta 500 × 500", lado:50, modulo:62},
+  "manual":{nome:"h equivalente à mão", lado:0, modulo:0}
+};
+const hEquiv = (k,capa,hN,mod,lado) => {
+  const c = CUBETAS[k], L = lado||c.lado, M = mod||c.modulo;
+  return (!L||!M||M<=L) ? capa+hN : capa + hN*(1-Math.pow(L/M,2));
+};
+const VAOS = {1:{km:1/8,kv:0.500,kd:384/5},2:{km:1/8,kv:0.625,kd:185},3:{km:1/10,kv:0.600,kd:145}};
+
+/* --- Preços -----------------------------------------------------------
+   VALORES DE PARTIDA, não são cotação. Substitua pelos da sua proposta.
+   venda em R$ por unidade; aluguel em R$ por unidade e por mês.        */
+const PRECOS = {
+  placa:    {venda:150, aluguel:0,    rot:"Placa de fôrma"},
+  barrote:  {venda:120, aluguel:6.00, rot:"Barrote / travessa"},
+  longarina:{venda:180, aluguel:9.00, rot:"Longarina"},
+  apoio:    {venda:190, aluguel:9.50, rot:"Apoio vertical"},
+  forcado:  {venda:45,  aluguel:2.50, rot:"Forcado"},
+  base:     {venda:55,  aluguel:3.00, rot:"Base / sapata"},
+  trava:    {venda:35,  aluguel:2.00, rot:"Trava / horizontal"},
+  cruzeta:  {venda:60,  aluguel:3.00, rot:"Cruzeta"},
+  tripe:    {venda:90,  aluguel:5.00, rot:"Tripé"},
+  sarrafo:  {venda:9,   aluguel:0,    rot:"Sarrafo (m)"},
+  cabo:     {venda:12,  aluguel:0,    rot:"Cabo de aço (m)"}
+};
+const ORC = {modo:"comparar", nPav:18, ciclo:15, jogos:2, frete:2800, viagens:4,
+             montagem:14, desmontagem:7, reposicao:8, impostos:0};
+const BRL = v => (v==null||!isFinite(v)) ? "—"
+  : v.toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+const D1 = {C1:[5,21],C2:[10,19],C3:[14,18],C4:[17,17]};
+
+/* ===================================================================
+   PROJETO DE PARTIDA — exemplo
+   Geometria real de uma planta de formas, com a obra nao identificada.
+   fck 30 MPa, Ec 30 672 MPa. Cotas e niveis em cm.
+   =================================================================== */
+let NIVEIS = [["FUNDAÇÃO",-41],["TÉRREO",84],["PAV. G1",444],["PAV. G2",732],["PAV. G3",1020],["PAV. G4",1308],
+  ["PAV. LAZER",1704],["PAV. TIPO 1",2046],["PAV. TIPO 2",2352],["PAV. TIPO 3",2658],["PAV. TIPO 4",2964],
+  ["PAV. TIPO 5",3270],["PAV. TIPO 6",3576],["PAV. TIPO 7",3882],["PAV. TIPO 8",4188],["PAV. TIPO 9",4494],
+  ["PAV. TIPO 10",4800],["PAV. TIPO 11",5106],["PAV. TIPO 12",5412],["PAV. TIPO 13",5718],["PAV. TIPO 14",6024],
+  ["PAV. TIPO 15",6330],["PAV. TIPO 16",6636],["PAV. TIPO 17",6942],["PAV. TIPO 18",7248],["PAV. TIPO 19",7554],
+  ["COB./CASA DE MÁQ.",7860],["FUNDO DO RES.",8196],["TOPO DO RES.",8388],["TOPO DEF",8574]];
+// Notas de exemplo, de uma obra especifica:
+// cada projeto traz as suas, e são editáveis na configuração.
+const DESFORMA_HRD = [
+  ["Vigas","Permitida desforma apenas lateral aos 3 dias. Desforma total aos 28 dias."],
+  ["Lajes","Retirar 2/3 das escoras aos 15 dias. Manter 1/3 do escoramento até a retirada de 2/3 do escoramento da laje superior."],
+  ["Pilares","Retirar formas aos 5 dias."],
+  ["Sequência em vigas","Entre dois apoios: remover as escoras do meio do vão para os apoios. Em balanço: da ponta para o apoio."],
+  ["Sequência em lajes","Na retirada total, retirar do centro da laje para as vigas."]];
+let DESFORMA = DESFORMA_HRD.map(p=>p.slice());
+const V207 = {V1:[14,65],V2:[14,88],V3:[14,88],V3A:[25,88],V4:[25,60],V5:[14,88],V6:[14,88],V7:[14,60],V8:[14,60],
+  V9:[14,60],V10:[14,55],V11:[14,55],V12:[10,55],V13:[10,55],V14:[14,55],V15:[10,55],V16:[14,60],V17:[14,88],
+  V18:[14,60],V19:[14,88],V20:[14,88],V21:[14,88],V22:[14,88],V23:[14,88],V24:[14,88],V25:[14,88],V26:[14,60],
+  V27:[14,88],V28:[14,65],V29:[14,88],V30:[14,88],V31:[14,60],V32:[14,60],V33:[25,60],V34:[14,55],V35:[14,60],
+  V36:[14,55],V37:[14,50],V38:[14,60],V39:[25,60],V40:[14,60],V41:[14,60],V42:[14,88],V43:[14,88],V44:[14,65],
+  V45:[14,88],V46:[14,60],V47:[14,88],V48:[14,88]};
+const P207 = {P1:[30,150],P2:[28,155],P3:[22,175],P4:[25,150],P5:[28,155],P6:[25,400],P7:[25,180],P8:[25,180],
+  P10:[25,120],P11:[25,150],P12:[25,150],P13:[28,180],P14:[25,225],P15:[25,120],P16:[28,150],P17:[25,200],
+  P18:[25,200],P19:[28,150],P20:[25,120],P21:[25,100],P22:[22,400],P23:[25,80],P24:[25,80],P25:[25,120]};
+const L207 = {L1:[20,"laje-mac"],L2:[25,"laje-nerv"],L3:[25,"laje-nerv"],L4:[15,"laje-mac"],L5:[15,"laje-mac"],
+  L6:[15,"laje-mac"],L7:[15,"laje-mac"],L8:[25,"laje-nerv"],L9:[25,"laje-nerv"],L10:[15,"laje-mac"],
+  L11:[15,"laje-mac"],L12:[15,"laje-mac"],L13:[15,"laje-mac"],L14:[25,"laje-nerv"],L15:[15,"laje-mac"]};
+
+function elsExemplo(areaTot, compVigas){
+  const ls = Object.entries(L207), peso = h => h>=25?3 : h>=20?2 : 1;
+  const soma = ls.reduce((s,[,[h]])=>s+peso(h),0);
+  const els = ls.map(([id,[h,t]])=>({id,t,a:h,q:+(areaTot*peso(h)/soma).toFixed(1),e:(h===15?-5:0)}));
+  const nv = Object.keys(V207).length;
+  Object.entries(V207).forEach(([id,[b,h]])=>els.push({id,t:"viga",b,h,q:+(compVigas/nv).toFixed(1)}));
+  Object.entries(P207).forEach(([id,[b,h]])=>els.push({id,t:"pilar",b,h,q:3.06}));
+  return els;
+}
+const PRESETS = {
+  hrd207:{nome:"Exemplo — forma de pavimento tipo", pavLaje:"PAV. TIPO 2", pavApoio:"PAV. TIPO 1",
+    geo:"exemplo-tipo", els:elsExemplo(375,175), areaBruta:459.3531, perim:92.7484,
+    aviso:"Marcas, espessuras e seções lidas da prancha 207. A área do pavimento e a metragem de viga vêm da geometria, já na escala detectada pelos pilares; o rateio por pano é por espessura — confira no quadro de áreas da prancha."},
+  hrd520:{nome:"Exemplo — pavimento inferior", pavLaje:"PAV. TIPO 1", pavApoio:"PAV. LAZER",
+    geo:"exemplo-inferior", els:elsExemplo(375,189), areaBruta:459.3531, perim:92.7484,
+    aviso:"A prancha 520 é de armaduras positivas, não de formas — dela vem o sistema: lajes nervuradas com cubeta ATEX 800, capitéis e tela Q196. Pé-direito Lazer→Tipo 1 é 342 cm, maior que o dos tipos."},
+  mont:{nome:"Exemplo — escoramento de laje trelicada", nivLaje:2.95, nivApoio:0, els:[
+    {id:"L1",t:"laje-pre",a:18,q:120},{id:"L2",t:"laje-pre",a:18,q:95},{id:"L3",t:"laje-pre",a:18,q:140},
+    {id:"L4",t:"laje-pre",a:15,q:85},{id:"L5",t:"laje-pre",a:18,q:110},{id:"L6",t:"laje-pre",a:15,q:70},
+    {id:"L7",t:"laje-pre",a:15,q:60},
+    {id:"V12",t:"viga",b:18,h:75,q:46},{id:"V20",t:"viga",b:18,h:75,q:38},{id:"V24",t:"viga",b:18,h:75,q:33},
+    {id:"V27",t:"viga",b:18,h:75,q:40},{id:"V4",t:"viga",b:18,h:66,q:12},{id:"V13",t:"viga",b:30,h:66,q:10},
+    {id:"V3",t:"viga",b:40,h:30,q:8},{id:"V19",t:"viga",b:14,h:50,q:9},
+    {id:"P3",t:"pilar",b:35,h:200,q:2.95},{id:"P4",t:"pilar",b:45,h:220,q:2.95},
+    {id:"P13",t:"pilar",b:50,h:170,q:2.95},{id:"P19",t:"pilar",b:35,h:251,q:2.95}],
+    aviso:"Projeto de referência da o fornecedor, de onde vêm os catálogos e as cargas de utilização. Lajes treliçadas com vigota 160 — 3,35 kN/m² para h = 18 cm."},
+  vazio:{nome:"Nova prancha", nivLaje:3.00, nivApoio:0, els:[]}
+};
+
+/* ===================================================================
+   ESTADO
+   =================================================================== */
+let ELS = [];
+let GEO = null;            // geometria importada do DXF
+const $ = id => document.getElementById(id);
+const num = id => { const el=$(id); return el ? (parseFloat(el.value)||0) : 0; };
+const val = id => { const el=$(id); return el ? el.value : ""; };
+const chk = id => { const el=$(id); return el ? el.checked : false; };
+const fmt = (v,d=2) => (v==null||!isFinite(v)) ? "—" : v.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const mod5 = v => Math.floor(v*20)/20;
+
+/* ===================================================================
+   MOTOR DE CÁLCULO (verificado contra o projeto de referência)
+   =================================================================== */
+function capEscora(def,H){
+  const t = def.tab; if(!t) return {cap:0,fora:"sem tabela"};
+  if(H < t[0][0]) return {cap:kgf(t[0][1]), fora:"abaixo"};
+  if(H > t[t.length-1][0]) return {cap:kgf(t[t.length-1][1]), fora:"acima"};
+  for(let i=0;i<t.length-1;i++){ const [h1,c1]=t[i],[h2,c2]=t[i+1];
+    if(H>=h1&&H<=h2) return {cap:kgf(c1+(c2-c1)*(H-h1)/(h2-h1)), fora:null}; }
+  return {cap:kgf(t[t.length-1][1]), fora:null};
+}
+function capPontalete(b,h,L,cls){
+  const m = MADEIRA[cls], A=b*h*1e-4, I=b*Math.pow(h,3)/12*1e-8, i=Math.sqrt(I/A), lam=L/i;
+  const fc0d = fd_flex_mac(m.fc0k), Eef = KMOD_MAC*m.E*1000;
+  if(lam<=40) return {cap:fc0d*A, ok:true, lam, det:`λ = ${fmt(lam,1)} ≤ 40 — peça curta, N = f_c0d · A.`};
+  if(lam<=80){
+    const FE = Math.PI*Math.PI*Eef*I/(L*L), e1 = Math.max(L/300 + h*1e-2/30, h*1e-2/30), W = b*h*h/6*1e-6;
+    let lo=0, hi=Math.min(fc0d*A, 0.95*FE);
+    for(let k=0;k<60;k++){ const N=(lo+hi)/2, Md=N*e1*(FE/(FE-N));
+      (N/(fc0d*A)+Md/(fc0d*W) > 1) ? hi=N : lo=N; }
+    return {cap:lo, ok:true, lam, det:`λ = ${fmt(lam,1)} (40 < λ ≤ 80) — medianamente esbelta. F_E = ${fmt(FE,1)} kN, e₁ = ${fmt(e1*1000,1)} mm.`};
+  }
+  return {cap:0, ok:false, lam, det:`λ = ${fmt(lam,1)} > 80 — peça esbelta, fora do escopo. Dimensionar pela NBR 7190 com excentricidade de fluência, travar a meia altura ou usar escora metálica.`};
+}
+function capVertical(key,H,trav,madCls){
+  const d = VERTICAIS[key];
+  if(d.tabTrav){
+    const k = d.tabTrav[trav] ?? d.tabTrav[1.5];
+    return {cap:kgf(k), label:`${d.nome} · vertical, trav. ${fmt(trav,2)} m`, fora:null,
+      det:`Carga de utilização por vertical = ${fmt(k,0)} kgf (travamento a cada ${fmt(trav,2)} m, nas duas direções no plano de flambagem).`};
+  }
+  if(d.fam==="madeira"){
+    const Lfl = Math.min(H,trav);
+    const cands = d.secoes.map(([b,h])=>({b,h,...capPontalete(b,h,Lfl,madCls)}));
+    const ok = cands.filter(x=>x.ok).sort((a,b)=>b.cap-a.cap);
+    const best = ok[0] || cands.sort((a,b)=>a.lam-b.lam)[0];
+    return {cap:best.cap, label:`Pontalete ${fmt(best.b,1)} × ${fmt(best.h,1)} cm · ${madCls} · L_fl ${fmt(Lfl,2)} m`,
+      fora:best.ok?null:"esbeltez", det:best.det + (Lfl<H?`\n  Flambagem reduzida a ${fmt(Lfl,2)} m pelo travamento; H total ${fmt(H,2)} m.`:"")};
+  }
+  const r = capEscora(d,H);
+  return {cap:r.cap, label:d.nome, fora:r.fora, det:`Carga de utilização interpolada na tabela altura × carga para H = ${fmt(H,2)} m.`};
+}
+// Se a peça do catálogo não cobre dois vãos, a continuidade não existe: vira isostático.
+function vaoMax(def,wd,ws,nv,div,madCls){
+  const r = vaoNv(def,wd,ws,nv,div,madCls);
+  if(nv>1 && def.comp && r.L > def.comp/2){
+    const r1 = vaoNv(def,wd,ws,1,div,madCls);
+    r1.iso = `peça de ${fmt(def.comp,2)} m não cobre dois vãos — calculado como isostático`;
+    return r1;
+  }
+  return r;
+}
+function vaoNv(def,wd,ws,nv,div,madCls){
+  const c = VAOS[nv]; let Mr,Vr,EI,desc;
+  if(def.tipo==="adm"){
+    Mr=def.Madm; Vr=def.Vadm; EI=def.EI;
+    desc = `M adm ${fmt(def.Madm,2)} kN·m · V adm ${fmt(def.Vadm,1)} kN · EI ${fmt(def.EI,0)} kN·m²`;
+  } else {
+    const cls = def.cls||madCls, m = MADEIRA[cls];
+    const W=def.b*def.h*def.h/6*1e-6, A=def.b*def.h*1e-4, I=def.b*Math.pow(def.h,3)/12*1e-8;
+    const fd=fd_flex_mac(m.fc0k), fv=fd_cis_mac(m.fvk);
+    Mr=fd*W; Vr=fv*A/1.5; EI=KMOD_MAC*m.E*1000*I;
+    desc = `${fmt(def.b,1)}×${fmt(def.h,1)} cm ${cls} · W ${fmt(W*1e6,0)} cm³ · f_d ${fmt(fd/1000,1)} MPa · EI ${fmt(EI,0)} kN·m²`;
+  }
+  const Lf=Math.sqrt(Mr/(c.km*wd)), Lv=Vr/(c.kv*wd), Ld=Math.cbrt(c.kd*EI/(div*ws));
+  let L=Math.min(Lf,Lv,Ld); const gov = L===Lf?"flexão":L===Lv?"cortante":"flecha"; let lim=null;
+  if(def.comp && L>def.comp){ L=def.comp; lim=`limitado ao comprimento da peça (${fmt(def.comp,2)} m)`; }
+  return {L,Lf,Lv,Ld,gov,Mr,Vr,EI,desc,nv,lim};
+}
+function pesoLaje(el,cfg){
+  const h = el.a/100;
+  if(el.t==="laje-pre") return {g:(LAJES_PRE[el.a] ?? cfg.gConc*h), via:"tabela de laje treliçada"};
+  if(el.t==="laje-nerv"){
+    const heq = cfg.hEqMan>0 ? cfg.hEqMan : hEquiv(cfg.cubeta,cfg.capa,Math.max(el.a-cfg.capa,0),cfg.cubMod,cfg.cubLado);
+    return {g:cfg.gConc*heq/100, heq,
+      via:`nervurada ${CUBETAS[cfg.cubeta].nome}: h_eq ${fmt(heq,1)} cm` +
+        (cfg.hEqMan>0?" (à mão)":` = ${fmt(cfg.capa,1)} + ${fmt(el.a-cfg.capa,1)} · [1 − (${fmt(cfg.cubLado,0)}/${fmt(cfg.cubMod,0)})²]`)};
+  }
+  return {g:cfg.gConc*h, via:`maciça γ·h = ${fmt(cfg.gConc,1)} × ${fmt(h,2)}`};
+}
+function calcLaje(el,cfg){
+  const pp = pesoLaje(el,cfg), gLaje = pp.g;
+  const Hl = cfg.H + (cfg.hLajeRef - el.a/100) - (el.e||0)/100;
+  const gPerm = gLaje + cfg.gForma + cfg.gEsc;
+  let qk = gPerm + cfg.qTrab; const minAplic = qk < cfg.qMin; if(minAplic) qk = cfg.qMin;
+  const qd = cfg.mode==="elu" ? 1.4*qk : qk, qserv = gLaje + 1.0;
+
+  const F = cfg.forma, W = 100*F.t*F.t/6*1e-6, I = 100*Math.pow(F.t,3)/12*1e-8;
+  const formaDef = {tipo:"adm", Madm:F.sigAdm*W, Vadm:F.tauAdm*(100*F.t*1e-4)/1.5, EI:F.E*I, nome:F.nome, comp:2.44};
+  const rF = vaoMax(formaDef, qd, qserv, cfg.nv, cfg.divFlecha);
+  const sBarrote = Math.max(0.10, mod5(rF.L));
+  const rB = vaoMax(cfg.barrote, qd*sBarrote, qserv*sBarrote, cfg.nv, cfg.divFlecha, cfg.mad);
+  const sViga = Math.max(0.20, mod5(rB.L));
+  const rV = vaoMax(cfg.viga, qd*sViga, qserv*sViga, cfg.nv, cfg.divFlecha, cfg.mad);
+  let sEsc = Math.max(0.20, mod5(rV.L));
+
+  const cv = capVertical(cfg.vertKey, Hl, cfg.trav, cfg.mad), capUso = cv.cap;
+  const sEscCap = capUso*cfg.fuMeta/(qd*sViga);
+  const limApoio = sEscCap < sEsc;
+  if(limApoio) sEsc = Math.max(0.20, mod5(sEscCap));
+
+  const Pk = qk*sViga*sEsc, Pd = qd*sViga*sEsc;
+  const fu = (cfg.mode==="elu"?Pd:Pk)/capUso;
+  const nEsc = Math.ceil(el.q/(sViga*sEsc));
+  const base = cfg.base, fuBase = Pk/base.cap;
+  const sigBase = Pk/(cfg.aBase*1e-4), fuSolo = sigBase/cfg.sigSolo;
+  return {el,gLaje,pp,Hl,gPerm,qk,qd,qserv,minAplic,rF,rB,rV,sBarrote,sViga,sEsc,cv,capUso,Pk,Pd,fu,nEsc,
+          limApoio,base,fuBase,sigBase,fuSolo,malhaReesc:Math.min(cfg.reMalha,sViga,sEsc),area:el.q,V:qk*el.q};
+}
+function calcViga(el,cfg){
+  const b=el.b/100, hv=el.h/100;
+  const gC = cfg.gConc*b*hv, gF = cfg.gForma*(b+2*hv);
+  const faixa = Math.max(b,0.60);
+  const wk = gC+gF+cfg.qTrab*faixa, wd = cfg.mode==="elu"?1.4*wk:wk, ws = gC+1.0*faixa;
+  const rFundo = vaoMax(cfg.barrote, wd, ws, cfg.nv, cfg.divFlecha, cfg.mad);
+  const Hviga = cfg.H + hv - (el.e||0)/100;
+  const cv = capVertical(cfg.vertKey, Hviga, cfg.trav, cfg.mad), capUso = cv.cap;
+  let s = Math.max(0.20, Math.min(mod5(rFundo.L), mod5(capUso*cfg.fuMeta/wd)));
+  const Pk = wk*s, fu = (cfg.mode==="elu"?wd*s:Pk)/capUso;
+  return {el,wk,wd,ws,rFundo,Hviga,cv,capUso,s,Pk,fu,nEsc:Math.ceil(el.q/s)+1,pr:pressao(hv,cfg),comp:el.q,V:wk*el.q};
+}
+function pressao(hForma,cfg){
+  const g = cfg.gConc, pHidro = g*hForma;
+  let pb = pHidro, hs = hForma, via = "hidrostática γ·h (D.5)";
+  if(cfg.pressMod==="diag" && cfg.consist!=="CAA"){
+    const [a,c] = D1[cfg.consist], v = Math.min(cfg.vConc,7.0);
+    pb = a*v+c; hs = pb/25;
+    let corr = cfg.tempConc<25 ? 1+0.03*(25-cfg.tempConc) : 1;
+    pb*=corr; hs*=corr;
+    if(g!==25) pb *= g/25;
+    via = `diagrama D.1 aprox. · ${cfg.consist} · v = ${fmt(v,1)} m/h` + (corr>1?` · +${fmt((corr-1)*100,0)}% por T = ${fmt(cfg.tempConc,0)} °C`:"");
+    if(pb>pHidro){ pb=pHidro; hs=hForma; via+=" · limitado pela hidrostática"; }
+  }
+  if(cfg.consist==="CAA"){ pb=pHidro; hs=hForma; via="auto-adensável: p = γ·h (D.5.7.1)"; }
+  const F = cfg.forma, W = 100*F.t*F.t/6*1e-6, I = 100*Math.pow(F.t,3)/12*1e-8, c = VAOS[cfg.nv];
+  const wd = (cfg.mode==="elu"?1.4:1)*pb;
+  const Ls = Math.min(Math.sqrt(F.sigAdm*W/(c.km*wd)), Math.cbrt(c.kd*F.E*I/(cfg.divFlecha*pb)));
+  const sG = Math.max(0.10, mod5(Ls));
+  return {pb,hs,pHidro,via,sGravata:sG,Fgrav:pb*sG};
+}
+function cfgAtual(){
+  const nivLaje=num("nivLaje"), nivApoio=num("nivApoio"), eForma=num("eForma")/100;
+  const lajes = ELS.filter(e=>e.t.startsWith("laje"));
+  const hLajeRef = (lajes.length?Math.max(...lajes.map(e=>e.a)):18)/100;
+  const H = Math.max(0.3, nivLaje - hLajeRef - nivApoio - eForma);
+  const pd = val("placaDim").match(/(\d+)\s*[xX]\s*(\d+)/);
+  return {
+    gConc:num("gConc"), qTrab:num("qTrab"), gForma:num("gForma"), gEsc:num("gEsc"), qMin:num("qMin"),
+    qVento:num("qVento"), pctH:num("pctH")/100, divFlecha:num("flechaDiv")||500,
+    fuMeta:Math.min(Math.max(num("fuMeta")||85,40),100)/100,
+    nv:parseInt(val("nVaos"),10)||3, mode:val("metodo")||"adm", trav:parseFloat(val("travamento"))||1.5,
+    vertKey:val("sysVert")||"escora-320", viga:HORIZ[val("sysViga")]||HORIZ["viga-230"],
+    barrote:HORIZ[val("sysBarrote")]||HORIZ["barrote-h8"], forma:FORMAS[val("sysForma")]||FORMAS["comp-18"],
+    base:BASES[val("sysBase")]||BASES["sapata-30"], mad:"D40",
+    H, nivLaje, nivApoio, eForma, hLajeRef,
+    cubeta:val("cubeta")||"atex-800", capa:num("capa"), cubLado:num("cubLado"), cubMod:num("cubMod"), hEqMan:num("hEqMan"),
+    vConc:num("vConc"), consist:val("consist")||"C3", tempConc:num("tempConc"), pressMod:val("pressMod")||"hidro",
+    reSobre:num("reSobre"), reMalha:num("reMalha"), sigSolo:num("sigSolo"), aBase:num("aBase"),
+    placa:{b:(pd?+pd[1]:200)/100, h:(pd?+pd[2]:100)/100},
+    dirLong:val("dirLong")||"x", offX:num("offX"), offY:num("offY"),
+    areaBrutaMan:num("areaBrutaMan"), perimMan:num("perimMan")
+  };
+}
+// área bruta: a medida informada vence a da geometria, que vence a líquida
+function areaBruta(cfg, areaLiq){
+  if(cfg.areaBrutaMan>0) return {a:cfg.areaBrutaMan, via:"medida informada"};
+  if(GEO && GEO.mask && GEO.mask.areaBruta>0) return {a:GEO.mask.areaBruta, via:"fechada na geometria"};
+  return {a:areaLiq, via:"igual à líquida, sem geometria"};
+}
+
+/* ===================================================================
+   GEOMETRIA — leitura do DXF e máscara do pavimento
+   =================================================================== */
+/* --- Camadas do DXF ----------------------------------------------------
+   Cada escritório nomeia as camadas do seu jeito. O padrão abaixo é o do
+   AltoQi Eberick; ao importar, o app lista o que achou e deixa remapear. */
+const CAMADAS = {
+  viga:  ["FO-Vigas"],
+  pilar: ["FO-Pilares", "FO-Hachuras dos pilares", "FO-Hachura pilar que passa"],
+  abert: ["FO-Aberturas", "FO-Elementos cortados"],
+  ignora:["Selo", "DI-Tabelas", "FO-Títulos", "Relação do aço", "Textos armaduras",
+          "Descrição da armadura", "FO-Hachuras das lajes", "FO-Indicações", "FO-Cotas",
+          "LC-Textos", "Textos", "Layer 1", "0"]
+};
+const PADRAO_CAMADAS = JSON.parse(JSON.stringify(CAMADAS));
+// palpite quando a prancha vem de outro programa
+const PISTAS = {viga:/viga|beam|vig/i, pilar:/pilar|coluna|column|pil/i,
+                abert:/abertur|furo|shaft|vazio|opening|cortad/i,
+                ignora:/selo|tabela|t[íi]tulo|a[çc]o|armadura|hachura|indica|cota|texto|dim|layer|^0$/i};
+const reDe = chave => {
+  const l = (CAMADAS[chave]||[]).filter(Boolean);
+  if(!l.length) return /(?!)/;                       // lista vazia: não casa nada
+  return new RegExp(l.map(s=>"^"+s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"$").join("|"), "i");
+};
+let LAY_VIGA = reDe("viga"), LAY_PILAR = reDe("pilar"), LAY_ABERT = reDe("abert"), LAY_IGN = reDe("ignora");
+let LAY_BLOQ = new RegExp(LAY_VIGA.source+"|"+LAY_PILAR.source+"|"+LAY_ABERT.source, "i");
+function recompilarCamadas(){
+  LAY_VIGA = reDe("viga"); LAY_PILAR = reDe("pilar"); LAY_ABERT = reDe("abert"); LAY_IGN = reDe("ignora");
+  LAY_BLOQ = new RegExp(LAY_VIGA.source+"|"+LAY_PILAR.source+"|"+LAY_ABERT.source, "i");
+}
+// Classifica as camadas de um desenho novo: mantém o que já casa, chuta o resto.
+function mapearCamadas(bruto){
+  const todas = [...new Set([].concat(
+    bruto.lines.map(l=>l.lay), bruto.polys.map(p=>p.lay),
+    bruto.arcs.map(a=>a.lay), bruto.txts.map(t=>t.lay)).filter(Boolean))];
+  const conhecida = s => Object.keys(PISTAS).some(k=>(CAMADAS[k]||[]).includes(s));
+  const novas = todas.filter(s=>!conhecida(s));
+  const achados = {viga:[],pilar:[],abert:[],ignora:[]};
+  novas.forEach(s=>{
+    for(const k of ["viga","pilar","abert"]) if(PISTAS[k].test(s)){ achados[k].push(s); return; }
+    if(PISTAS.ignora.test(s)) achados.ignora.push(s);
+  });
+  ["viga","pilar","abert","ignora"].forEach(k=>{ CAMADAS[k] = [...new Set(CAMADAS[k].concat(achados[k]))]; });
+  recompilarCamadas();
+  return {todas, achados, semUso: novas.filter(s=>!Object.values(achados).some(a=>a.includes(s)))};
+}
+const largurasViga = lista => [...new Set((lista||[]).filter(e=>e.t==="viga").map(e=>e.b))].filter(b=>b>0);
+
+function lerDXF(txt){
+  const ln = txt.split(/\r?\n/);
+  const n = ln.length, lines=[], polys=[], arcs=[], circles=[], txts=[];
+  let compVigas = 0, i = 0;
+  const limpa = s => s.replace(/\\P/g," ").replace(/\\[A-Za-z][^;]*;/g,"").replace(/[{}]/g,"").trim();
+  while(i<n-1){
+    if(ln[i].trim()==="0"){
+      const tipo = ln[i+1].trim(); let j=i+2; const g={};
+      while(j<n-1 && ln[j].trim()!=="0"){ const c=ln[j].trim(); (g[c]=g[c]||[]).push(ln[j+1].trim()); j+=2; }
+      const lay = (g["8"]||[])[0] || "";
+      const F = k => parseFloat((g[k]||[])[0]);
+      try{
+        if(tipo==="LINE" && g["10"] && g["11"]){
+          const a=[F("10"),F("20")], b=[F("11"),F("21")];
+          lines.push({lay,a,b});
+          if(LAY_VIGA.test(lay)) compVigas += Math.hypot(b[0]-a[0], b[1]-a[1]);
+        } else if(tipo==="LWPOLYLINE" && g["10"]){
+          const xs=(g["10"]||[]).map(Number), ys=(g["20"]||[]).map(Number);
+          if(xs.length>1 && xs.length===ys.length){
+            const fl = parseInt((g["70"]||["0"])[0],10)||0;
+            polys.push({lay, pts:xs.map((x,k)=>[x,ys[k]]), closed:!!(fl&1)});
+          }
+        } else if(tipo==="ARC" && g["10"]){
+          arcs.push({lay, c:[F("10"),F("20")], r:F("40"), a0:F("50"), a1:F("51")});
+        } else if(tipo==="CIRCLE" && g["10"]){
+          circles.push({lay, c:[F("10"),F("20")], r:F("40")});
+        } else if((tipo==="TEXT"||tipo==="MTEXT") && g["1"] && g["10"]){
+          const s = limpa((g["1"]||[])[0]); if(s) txts.push({lay, s, x:F("10"), y:F("20")});
+        }
+      }catch(_){}
+      i=j; continue;
+    }
+    i++;
+  }
+  return {lines,polys,arcs,circles,txts,compVigas:compVigas/2};
+}
+
+/* --- Escala do desenho importado --------------------------------------
+   O DXF nem sempre vem em metros 1:1. Como a prancha traz a seção de cada
+   pilar no texto e o contorno dele na geometria, dá para medir um contra o
+   outro e descobrir o fator sozinho. */
+function detectarEscala(g, els){
+  const pol = g.polys.filter(p=>LAY_PILAR.test(p.lay));
+  const marcas = g.txts.filter(t=>/^P\d+[A-Z]?$/i.test(t.s));
+  const raz = [];
+  pol.forEach(p=>{
+    const xs=p.pts.map(q=>q[0]), ys=p.pts.map(q=>q[1]);
+    const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
+    const cx=(Math.max(...xs)+Math.min(...xs))/2, cy=(Math.max(...ys)+Math.min(...ys))/2;
+    let m=null, dm=Infinity;
+    marcas.forEach(t=>{ const d=Math.hypot(t.x-cx,t.y-cy); if(d<dm){dm=d;m=t;} });
+    if(!m || dm>3) return;
+    const el = (els||[]).find(e=>e.id===m.s.toUpperCase() && e.t==="pilar");
+    if(!el || !el.b || !el.h) return;
+    const med=[w,h].sort((a,b)=>a-b), real=[el.b/100,el.h/100].sort((a,b)=>a-b);
+    if(real[0]<=0 || med[0]<=0) return;
+    raz.push((med[0]/real[0] + med[1]/real[1])/2);
+  });
+  if(raz.length<3) return null;
+  raz.sort((a,b)=>a-b);
+  const mediana = raz[Math.floor(raz.length/2)];
+  const fora = raz.filter(v=>Math.abs(v/mediana-1)>0.08).length;
+  return {razao:mediana, fator:1/mediana, n:raz.length, fora, confiavel:fora/raz.length < 0.25};
+}
+function escalarGeo(g, f){
+  if(!f || Math.abs(f-1)<1e-9) return g;
+  const P = p => [p[0]*f, p[1]*f];
+  return {
+    lines: g.lines.map(l=>({lay:l.lay, a:P(l.a), b:P(l.b)})),
+    polys: g.polys.map(p=>({lay:p.lay, closed:p.closed, pts:p.pts.map(P)})),
+    arcs:  g.arcs.map(a=>({lay:a.lay, c:P(a.c), r:a.r*f, a0:a.a0, a1:a.a1})),
+    circles: g.circles.map(c=>({lay:c.lay, c:P(c.c), r:c.r*f})),
+    txts:  g.txts.map(t=>({lay:t.lay, s:t.s, x:t.x*f, y:t.y*f})),
+    compVigas: (g.compVigas||0)*f
+  };
+}
+// Monta a geometria utilizável a partir do bruto: escala, caixa, máscara e eixos.
+function prepararGeo(bruto, els){
+  const esc = val("escala");
+  let f = 1, via = "";
+  if(esc==="auto"){
+    const d = detectarEscala(bruto, els);
+    if(d){ f = d.fator; via = `detectada nos ${d.n} pilares: 1 unidade = ${fmt(f,3)} m` +
+      (d.confiavel ? "" : ` — ${d.fora} pilares fora da mediana, confira`); }
+    else { via = "não foi possível detectar pelos pilares; adotado 1 unidade = 1 m"; }
+  } else if(esc==="custom"){ f = num("escalaFator")||1; via = `informada: 1 unidade = ${fmt(f,3)} m`; }
+  else { f = parseFloat(esc)||1; via = `1 unidade = ${fmt(f,3)} m`; }
+  $("escalaFator").value = +f.toFixed(4);
+
+  const g = escalarGeo(bruto, f);
+  const bb = bboxPlano(g.txts);
+  if(!bb) return null;
+  g.bb = bb;
+  g.mask = construirMascara(g, bb, 0.10);
+  g.eixos = eixosViga(g, largurasViga(els)).filter(e=>{
+    const cx=(e.a[0]+e.b[0])/2, cy=(e.a[1]+e.b[1])/2;
+    return cx>bb.x0 && cx<bb.x1 && cy>bb.y0 && cy<bb.y1; });
+  g.escala = {fator:f, via};
+  return g;
+}
+
+// Região do pavimento: caixa das marcas de laje, com folga.
+function bboxPlano(txts){
+  const lb = txts.filter(t=>/^L\d+[A-Z]?$/i.test(t.s) && (/laje/i.test(t.lay)||!t.lay));
+  const src = lb.length>=3 ? lb : txts.filter(t=>/^[LVP]\d/i.test(t.s));
+  if(src.length<3) return null;
+  const xs=src.map(t=>t.x), ys=src.map(t=>t.y);   // margem em metros, já na escala real
+  return {x0:Math.min(...xs)-4, x1:Math.max(...xs)+4, y0:Math.min(...ys)-4, y1:Math.max(...ys)+4};
+}
+
+// Máscara "dentro do pavimento": flood fill a partir de todas as marcas de laje,
+// barrado pelas arestas de viga, pilares, elementos cortados e aberturas.
+// Não separa pano por pano — só responde se o ponto está sobre a laje.
+function construirMascara(geo, bb, cell){
+  const W = Math.ceil((bb.x1-bb.x0)/cell)+2, H = Math.ceil((bb.y1-bb.y0)/cell)+2;
+  const blk = new Uint8Array(W*H), msk = new Uint8Array(W*H);
+  const cx = x => Math.round((x-bb.x0)/cell), cy = y => Math.round((y-bb.y0)/cell);
+  const mark = (x,y) => { const c=cx(x), r=cy(y);
+    for(let dc=-1;dc<=1;dc++) for(let dr=-1;dr<=1;dr++){
+      const a=c+dc, b=r+dr; if(a>=0&&a<W&&b>=0&&b<H) blk[b*W+a]=1; } };
+  const seg = (a,b) => { const L=Math.hypot(b[0]-a[0],b[1]-a[1]), k=Math.max(2,Math.ceil(L/(cell*0.45)));
+    for(let t=0;t<=k;t++) mark(a[0]+(b[0]-a[0])*t/k, a[1]+(b[1]-a[1])*t/k); };
+  geo.lines.forEach(l=>{ if(LAY_BLOQ.test(l.lay)) seg(l.a,l.b); });
+  geo.polys.forEach(p=>{ if(!LAY_BLOQ.test(p.lay)) return;
+    for(let k=0;k<p.pts.length-(p.closed?0:1);k++) seg(p.pts[k], p.pts[(k+1)%p.pts.length]); });
+
+  const q = new Int32Array(W*H); let qh=0, qt=0;
+  geo.txts.filter(t=>/^L\d+[A-Z]?$/i.test(t.s)).forEach(t=>{
+    const c=cx(t.x), r=cy(t.y);
+    for(let rad=0;rad<30 && rad<Math.max(W,H);rad++){
+      let achou=false;
+      for(let dc=-rad;dc<=rad;dc++) for(const dr of (rad?[-rad,rad]:[0])){
+        const a=c+dc, b=r+dr;
+        if(a>=0&&a<W&&b>=0&&b<H && !blk[b*W+a] && !msk[b*W+a]){ msk[b*W+a]=1; q[qt++]=b*W+a; achou=true; }
+      }
+      if(achou) break;
+    }
+  });
+  while(qh<qt){
+    const p=q[qh++], r=(p/W)|0, c=p%W;
+    if(c>0 && !blk[p-1] && !msk[p-1]){ msk[p-1]=1; q[qt++]=p-1; }
+    if(c<W-1 && !blk[p+1] && !msk[p+1]){ msk[p+1]=1; q[qt++]=p+1; }
+    if(r>0 && !blk[p-W] && !msk[p-W]){ msk[p-W]=1; q[qt++]=p-W; }
+    if(r<H-1 && !blk[p+W] && !msk[p+W]){ msk[p+W]=1; q[qt++]=p+W; }
+  }
+  let dentro=0, sx=0, sy=0;
+  for(let k=0;k<msk.length;k++) if(msk[k]){ dentro++; sx += k%W; sy += (k/W)|0; }
+  const cxm = dentro ? bb.x0 + (sx/dentro)*cell : (bb.x0+bb.x1)/2;
+  const cym = dentro ? bb.y0 + (sy/dentro)*cell : (bb.y0+bb.y1)/2;
+
+  // Área bruta: fecha a máscara através das vigas e preenche os vazios internos,
+  // para dar a área de laje como se mede em planta, e não só o vão entre vigas.
+  const dil = (src,k)=>{ const t=new Uint8Array(W*H), o=new Uint8Array(W*H);
+    for(let r=0;r<H;r++){ let n=0;
+      for(let x=0;x<W+k;x++){ if(x<W&&src[r*W+x])n++; if(x-2*k-1>=0&&src[r*W+x-2*k-1])n--;
+        const i=x-k; if(i>=0&&i<W) t[r*W+i]=n>0?1:0; } }
+    for(let x=0;x<W;x++){ let n=0;
+      for(let r=0;r<H+k;r++){ if(r<H&&t[r*W+x])n++; if(r-2*k-1>=0&&t[(r-2*k-1)*W+x])n--;
+        const i=r-k; if(i>=0&&i<H) o[i*W+x]=n>0?1:0; } }
+    return o; };
+  const ero = (src,k)=>{ const inv=new Uint8Array(W*H);
+    for(let i=0;i<W*H;i++) inv[i]=src[i]?0:1;
+    const d=dil(inv,k), o=new Uint8Array(W*H);
+    for(let i=0;i<W*H;i++) o[i]=d[i]?0:1; return o; };
+  const k = Math.max(2, Math.round(0.40/cell));
+  const fec = ero(dil(msk,k),k);
+  const fora = new Uint8Array(W*H), q2 = new Int32Array(W*H); let a=0,b=0;
+  const pf = p => { if(!fora[p]&&!fec[p]){fora[p]=1;q2[b++]=p;} };
+  for(let x=0;x<W;x++){ pf(x); pf((H-1)*W+x); }
+  for(let r=0;r<H;r++){ pf(r*W); pf(r*W+W-1); }
+  while(a<b){ const p=q2[a++], r=(p/W)|0, c2=p%W;
+    if(c2>0)pf(p-1); if(c2<W-1)pf(p+1); if(r>0)pf(p-W); if(r<H-1)pf(p+W); }
+  let bruto=0; for(let i=0;i<W*H;i++) if(fec[i]||!fora[i]) bruto++;
+
+  return {W,H,cell,bb,msk,blk,
+    in:(x,y)=>{ const c=cx(x), r=cy(y); return c>=0&&c<W&&r>=0&&r<H && msk[r*W+c]===1; },
+    area: dentro*cell*cell, areaBruta: bruto*cell*cell, cxm, cym};
+}
+
+// Eixos de viga: pares de arestas paralelas e próximas na camada de vigas.
+// A janela de distância vem das seções da própria prancha — sem isso o
+// pareamento casa arestas de vigas vizinhas e inventa vigas largas demais.
+function eixosViga(geo, larguras){
+  const bs = (larguras && larguras.length) ? larguras : [10,14,25];
+  const dmin = Math.max(0.05, Math.min(...bs)/100 - 0.02);
+  const dmax = Math.max(...bs)/100 + 0.05;
+  const L = geo.lines.filter(l=>LAY_VIGA.test(l.lay))
+    .map(l=>{ const dx=l.b[0]-l.a[0], dy=l.b[1]-l.a[1], len=Math.hypot(dx,dy);
+      return {...l, len, ux:dx/len, uy:dy/len}; })
+    .filter(l=>l.len>0.6);
+  const usados = new Set(), eixos = [];
+  for(let i=0;i<L.length;i++){
+    if(usados.has(i)) continue;
+    let par=null, pd=Infinity;
+    for(let j=0;j<L.length;j++){
+      if(i===j||usados.has(j)) continue;
+      if(Math.abs(L[i].ux*L[j].ux + L[i].uy*L[j].uy) < 0.995) continue;   // paralelas
+      const vx=L[j].a[0]-L[i].a[0], vy=L[j].a[1]-L[i].a[1];
+      const d = Math.abs(-L[i].uy*vx + L[i].ux*vy);                        // distância perpendicular
+      if(d < dmin || d > dmax) continue;
+      // sobreposição longitudinal de pelo menos metade da menor aresta
+      const t0 = L[i].ux*vx + L[i].uy*vy, t1 = t0 + (L[j].ux*L[i].ux+L[j].uy*L[i].uy)*L[j].len;
+      const ini = Math.max(0, Math.min(t0,t1)), fim = Math.min(L[i].len, Math.max(t0,t1));
+      if(fim - ini < 0.5*Math.min(L[i].len, L[j].len)) continue;
+      if(d < pd){ pd = d; par = j; }
+    }
+    if(par!==null){
+      usados.add(i); usados.add(par);
+      const o = L[par];
+      eixos.push({a:[(L[i].a[0]+o.a[0])/2,(L[i].a[1]+o.a[1])/2],
+                  b:[(L[i].b[0]+o.b[0])/2,(L[i].b[1]+o.b[1])/2], larg:pd});
+    }
+  }
+  return eixos;
+}
+
+/* ===================================================================
+   GERADOR DA GRADE DE ESCORAMENTO
+   =================================================================== */
+function gerarLayout(cfg, rGov, rVigaGov){
+  const out = {longas:[], barrotes:[], escoras:[], placas:[], escVigas:[], aviso:null};
+  if(!GEO || !GEO.mask || !rGov) return out;
+  const M = GEO.mask, bb = M.bb, cell = M.cell;
+  const sV = rGov.sViga, sE = rGov.sEsc, sB = rGov.sBarrote;
+  const horiz = cfg.dirLong === "x";
+
+  // trechos contínuos de uma reta dentro da máscara
+  const trechos = (fixo, from, to, eixo) => {
+    const res=[]; const step=cell; let ini=null;
+    for(let t=from;t<=to+1e-9;t+=step){
+      const dentro = eixo==="x" ? M.in(t,fixo) : M.in(fixo,t);
+      if(dentro && ini===null) ini=t;
+      if((!dentro||t+step>to) && ini!==null){
+        if(t-ini >= 0.30) res.push(eixo==="x" ? [[ini,fixo],[t,fixo]] : [[fixo,ini],[fixo,t]]);
+        ini=null;
+      }
+    }
+    return res;
+  };
+  const org = (v0,s,off) => v0 + ((off % s) + s) % s;
+
+  // longarinas e escoras
+  if(horiz){
+    for(let y=org(bb.y0,sV,cfg.offY); y<=bb.y1; y+=sV){
+      out.longas.push(...trechos(y,bb.x0,bb.x1,"x"));
+      for(let x=org(bb.x0,sE,cfg.offX); x<=bb.x1; x+=sE) if(M.in(x,y)) out.escoras.push([x,y]);
+    }
+    for(let x=org(bb.x0,sB,cfg.offX); x<=bb.x1; x+=sB) out.barrotes.push(...trechos(x,bb.y0,bb.y1,"y"));
+  } else {
+    for(let x=org(bb.x0,sV,cfg.offX); x<=bb.x1; x+=sV){
+      out.longas.push(...trechos(x,bb.y0,bb.y1,"y"));
+      for(let y=org(bb.y0,sE,cfg.offY); y<=bb.y1; y+=sE) if(M.in(x,y)) out.escoras.push([x,y]);
+    }
+    for(let y=org(bb.y0,sB,cfg.offY); y<=bb.y1; y+=sB) out.barrotes.push(...trechos(y,bb.x0,bb.x1,"x"));
+  }
+
+  // placas: lado comprido atravessando os barrotes
+  const pl = cfg.placa;
+  const pw = horiz ? pl.h : pl.b, ph = horiz ? pl.b : pl.h;
+  for(let x=org(bb.x0,pw,cfg.offX); x<bb.x1; x+=pw)
+    for(let y=org(bb.y0,ph,cfg.offY); y<bb.y1; y+=ph){
+      // conta quantos quartos da placa caem sobre a laje
+      let dentro=0;
+      for(const fx of [0.25,0.75]) for(const fy of [0.25,0.75]) if(M.in(x+pw*fx, y+ph*fy)) dentro++;
+      if(dentro>0) out.placas.push({x,y,w:pw,h:ph,cheia:dentro===4});
+    }
+
+  // escoras sob as vigas, no espaçamento da viga mais exigente
+  if(rVigaGov && GEO.eixos && GEO.eixos.length){
+    const s = rVigaGov.s;
+    GEO.eixos.forEach(e=>{
+      const L = Math.hypot(e.b[0]-e.a[0], e.b[1]-e.a[1]);
+      const n = Math.max(1, Math.round(L/s));
+      for(let k=0;k<=n;k++){
+        const t=k/n, x=e.a[0]+(e.b[0]-e.a[0])*t, y=e.a[1]+(e.b[1]-e.a[1])*t;
+        if(x>=bb.x0&&x<=bb.x1&&y>=bb.y0&&y<=bb.y1) out.escVigas.push([x,y]);
+      }
+    });
+  }
+  return out;
+}
+
+/* ===================================================================
+   MONTAGEM EM 3D — axonometria em SVG
+   Vetorial de propósito: sai no PDF junto com o resto, e a linguagem
+   gráfica combina com a prancha. Painter's algorithm, sem biblioteca.
+   =================================================================== */
+const V3 = {modo:false, recorte:60, cx:null, cy:null};
+
+// Caixa alinhada aos eixos: 6 faces com vértices em ordem anti-horária vista de fora.
+function caixa(x0,y0,z0, dx,dy,dz, cor, cls){
+  const X=[x0,x0+dx], Y=[y0,y0+dy], Z=[z0,z0+dz];
+  const P=(i,j,k)=>[X[i],Y[j],Z[k]];
+  return [
+    {pts:[P(0,0,1),P(1,0,1),P(1,1,1),P(0,1,1)], cor, cls, face:"topo"},
+    {pts:[P(0,0,0),P(0,1,0),P(1,1,0),P(1,0,0)], cor, cls, face:"base"},
+    {pts:[P(0,0,0),P(1,0,0),P(1,0,1),P(0,0,1)], cor, cls, face:"y-"},
+    {pts:[P(1,1,0),P(0,1,0),P(0,1,1),P(1,1,1)], cor, cls, face:"y+"},
+    {pts:[P(1,0,0),P(1,1,0),P(1,1,1),P(1,0,1)], cor, cls, face:"x+"},
+    {pts:[P(0,1,0),P(0,0,0),P(0,0,1),P(0,1,1)], cor, cls, face:"x-"}
+  ];
+}
+// Barra entre dois pontos no plano, com seção retangular — para longarina e barrote.
+function barra(a,b,z0,larg,alt,cor,cls){
+  const dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy);
+  if(L<0.01) return [];
+  const ux=dx/L, uy=dy/L, nx=-uy*larg/2, ny=ux*larg/2;
+  const p=(s,n,k)=>[a[0]+ux*s+nx*n, a[1]+uy*s+ny*n, z0+(k?alt:0)];
+  const A=p(0,1,0),B=p(L,1,0),C=p(L,-1,0),D=p(0,-1,0);
+  const A2=p(0,1,1),B2=p(L,1,1),C2=p(L,-1,1),D2=p(0,-1,1);
+  return [
+    {pts:[A2,B2,C2,D2], cor, cls, face:"topo"},
+    {pts:[A,D,C,B], cor, cls, face:"base"},
+    {pts:[A,B,B2,A2], cor, cls, face:"lado"},
+    {pts:[C,D,D2,C2], cor, cls, face:"lado"},
+    {pts:[B,C,C2,B2], cor, cls, face:"topo"},
+    {pts:[D,A,A2,D2], cor, cls, face:"topo"}
+  ];
+}
+// Prisma a partir de um contorno fechado — para pilar
+function prisma(pts,z0,dz,cor,cls){
+  const topo = pts.map(p=>[p[0],p[1],z0+dz]);
+  const base = pts.map(p=>[p[0],p[1],z0]);
+  const f = [{pts:topo, cor, cls, face:"topo"}, {pts:base.slice().reverse(), cor, cls, face:"base"}];
+  for(let i=0;i<pts.length;i++){
+    const j=(i+1)%pts.length;
+    f.push({pts:[base[i],base[j],topo[j],topo[i]], cor, cls, face:"lado"});
+  }
+  return f;
+}
+
+function gerar3D(cfg, layout, rGov){
+  const F = [];
+  if(!GEO || !GEO.mask || !rGov) return F;
+  const M = GEO.mask, bb = M.bb;
+  // o centro do recorte cai no centro de massa da laje, não da caixa:
+  // a caixa inclui a margem e o vazio central, e o recorte caía fora do pavimento
+  if(V3.cx===null){ V3.cx = M.cxm; V3.cy = M.cym; }
+  const r = Math.max(2, V3.recorte)/2;
+  const R = {x0:V3.cx-r, x1:V3.cx+r, y0:V3.cy-r, y1:V3.cy+r};
+  const dentro = (x,y) => x>=R.x0 && x<=R.x1 && y>=R.y0 && y<=R.y1;
+  const corta = s => {   // recorta um segmento na janela
+    const [a,b]=s;
+    const ax=Math.max(R.x0,Math.min(a[0],b[0])), bx=Math.min(R.x1,Math.max(a[0],b[0]));
+    const ay=Math.max(R.y0,Math.min(a[1],b[1])), by=Math.min(R.y1,Math.max(a[1],b[1]));
+    if(ax>bx||ay>by) return null;
+    return a[0]===b[0] ? [[a[0],ay],[a[0],by]] : [[ax,a[1]],[bx,a[1]]];
+  };
+
+  const H = rGov.Hl;                     // altura livre da escora sob a laje
+  const hLong = 0.15, hBar = 0.08, hPl = cfg.forma.t/100, hSarrafo = 0.05;
+  const zLong = H, zBar = H+hLong, zPl = zBar+hBar, zLaje = zPl+hPl;
+  const hLaje = rGov.el.a/100;
+  const zTopo = zLaje + hLaje;           // face superior da laje
+
+  // altura da viga pela seção da prancha: casa a largura do eixo com b
+  const porB = {};
+  ELS.filter(e=>e.t==="viga").forEach(e=>{ (porB[e.b] = porB[e.b] || []).push(e.h); });
+  const alturaViga = largM => {
+    const b = Math.round(largM*100);
+    let chave = Object.keys(porB).map(Number).sort((p,q)=>Math.abs(p-b)-Math.abs(q-b))[0];
+    if(chave===undefined || Math.abs(chave-b)>8) return Math.max(0.50, hLaje+0.35);
+    const hs = porB[chave], cont = {};
+    hs.forEach(h=>cont[h]=(cont[h]||0)+1);
+    return (+Object.entries(cont).sort((p,q)=>q[1]-p[1])[0][0])/100;
+  };
+  // fundo da viga mais profunda que cruza o recorte — onde a escora de viga para
+  const fundoViga = e => zTopo - alturaViga(e.larg);
+
+  // pilares que atravessam o recorte
+  if(chk("v3Pil")) GEO.polys.filter(p=>LAY_PILAR.test(p.lay)).forEach(p=>{
+    const cx=p.pts.reduce((s,q)=>s+q[0],0)/p.pts.length, cy=p.pts.reduce((s,q)=>s+q[1],0)/p.pts.length;
+    if(!dentro(cx,cy)) return;
+    F.push(...prisma(p.pts, 0, zLaje+hLaje, "pilar", "pilar"));
+  });
+  // escoras com placa de base
+  if(chk("v3Esc")){
+    layout.escoras.filter(([x,y])=>dentro(x,y)).forEach(([x,y])=>{
+      F.push(...caixa(x-0.03,y-0.03,0, 0.06,0.06,H, "esc","escora"));
+      F.push(...caixa(x-0.075,y-0.075,0, 0.15,0.15,0.02, "base","base"));
+    });
+    // a escora de viga para no fundo da viga que ela sustenta, não no nível da laje
+    layout.escVigas.filter(([x,y])=>dentro(x,y)).forEach(([x,y])=>{
+      let melhor = null, dm = Infinity;
+      (GEO.eixos||[]).forEach(e=>{
+        const d = Math.hypot((e.a[0]+e.b[0])/2-x, (e.a[1]+e.b[1])/2-y);
+        if(d<dm){ dm=d; melhor=e; }
+      });
+      const topo = melhor ? Math.max(0.4, fundoViga(melhor)-hSarrafo) : H+hLong;
+      F.push(...caixa(x-0.03,y-0.03,0, 0.06,0.06,topo, "escv","escora-viga"));
+      F.push(...caixa(x-0.075,y-0.075,0, 0.15,0.15,0.02, "base","base"));
+    });
+  }
+  // longarinas e barrotes
+  if(chk("v3Long")) layout.longas.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zLong,0.15,hLong,"longa","longarina")); });
+  if(chk("v3Barr")) layout.barrotes.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zBar,0.08,hBar,"barr","barrote")); });
+  // placas
+  if(chk("v3Placa")) layout.placas.forEach(p=>{
+    const x0=Math.max(R.x0,p.x), x1=Math.min(R.x1,p.x+p.w);
+    const y0=Math.max(R.y0,p.y), y1=Math.min(R.y1,p.y+p.h);
+    if(x1-x0<0.05||y1-y0<0.05) return;
+    F.push(...caixa(x0,y0,zPl, x1-x0,y1-y0,hPl, "placa","placa"));
+  });
+  // vigas de concreto penduradas na laje
+  if(chk("v3Viga")) (GEO.eixos||[]).forEach(e=>{
+    const cx=(e.a[0]+e.b[0])/2, cy=(e.a[1]+e.b[1])/2;
+    if(!dentro(cx,cy)) return;
+    const hv = alturaViga(e.larg);
+    F.push(...barra(e.a,e.b, zTopo-hv, e.larg, hv, "viga","viga"));
+  });
+  // laje por cima
+  if(chk("v3Laje")) F.push(...caixa(R.x0,R.y0,zLaje, R.x1-R.x0, R.y1-R.y0, hLaje, "laje","laje"));
+  return {faces:F, R, H, zLaje, hLaje};
+}
+
+/* --- Câmera em perspectiva ------------------------------------------
+   Projeção cônica de verdade, com plano próximo recortado, para dar para
+   entrar no modelo e olhar de qualquer ângulo. */
+// Órbita: a câmera gira em torno de um pivô sobre a planta, como num
+// visualizador de CAD. A roda aproxima do pivô; aproximando o bastante,
+// entra no meio do escoramento sem mudar de modo.
+const CAM = {tx:0, ty:0, tz:1.4, yaw:Math.PI*0.25, pitch:-0.42, dist:30, fov:55, near:0.25, pronta:false};
+function baseCam(){
+  const cy=Math.cos(CAM.yaw), sy=Math.sin(CAM.yaw), cp=Math.cos(CAM.pitch), sp=Math.sin(CAM.pitch);
+  return {f:[cp*cy, cp*sy, sp], r:[-sy, cy, 0], u:[-sp*cy, -sp*sy, cp]};
+}
+function posCam(){
+  const b = baseCam();
+  return [CAM.tx-b.f[0]*CAM.dist, CAM.ty-b.f[1]*CAM.dist, CAM.tz-b.f[2]*CAM.dist];
+}
+function diagPlano(){
+  const M = GEO && GEO.mask;
+  return M ? Math.hypot(M.bb.x1-M.bb.x0, M.bb.y1-M.bb.y0) : 30;
+}
+function vistaGeral(){
+  const M = GEO && GEO.mask;
+  CAM.tx = M ? M.cxm : 0; CAM.ty = M ? M.cym : 0; CAM.tz = 1.4;
+  CAM.yaw = Math.PI*0.25; CAM.pitch = -0.42; CAM.dist = diagPlano()*0.80;
+  CAM.pronta = true;
+}
+function entrarNoModelo(){
+  const M = GEO && GEO.mask; if(!M) return;
+  CAM.tx = M.cxm; CAM.ty = M.cym; CAM.tz = 1.6;
+  CAM.pitch = -0.04; CAM.dist = 1.2; CAM.pronta = true;
+}
+// recorta o polígono contra o plano próximo, em coordenadas de câmera
+function cortaPerto(pts, near){
+  const out = [];
+  for(let i=0;i<pts.length;i++){
+    const a = pts[i], b = pts[(i+1)%pts.length];
+    const da = a[2]-near, db = b[2]-near;
+    if(da >= 0) out.push(a);
+    if((da >= 0) !== (db >= 0)){
+      const t = da/(da-db);
+      out.push([a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, near]);
+    }
+  }
+  return out;
+}
+
+function desenhar3D(cfg, layout, rGov){
+  const svg = $("svg");
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const G = gerar3D(cfg, layout, rGov);
+  if(!G || !G.faces.length){ $("vazio").hidden = false; return; }
+  $("vazio").hidden = true;
+  if(!CAM.pronta) vistaGeral();
+
+  const b = baseCam(), P = posCam();
+  const k = 1/Math.tan(CAM.fov*Math.PI/360);
+  const paraCam = p => { const d=[p[0]-P[0], p[1]-P[1], p[2]-P[2]];
+    return [d[0]*b.r[0]+d[1]*b.r[1]+d[2]*b.r[2],
+            d[0]*b.u[0]+d[1]*b.u[1]+d[2]*b.u[2],
+            d[0]*b.f[0]+d[1]*b.f[1]+d[2]*b.f[2]]; };
+
+  const polis = [];
+  for(const f of G.faces){
+    let q = f.pts.map(paraCam);
+    if(q.every(p=>p[2] <= CAM.near)) continue;
+    if(q.some(p=>p[2] <= CAM.near)){ q = cortaPerto(q, CAM.near); if(q.length<3) continue; }
+    const s = q.map(p=>[k*p[0]/p[2], -k*p[1]/p[2]]);
+    let a=0; for(let i=0;i<s.length;i++){ const j=(i+1)%s.length; a += s[i][0]*s[j][1]-s[j][0]*s[i][1]; }
+    if(a/2 <= 0) continue;                                   // face de trás
+    const prof = q.reduce((t,p)=>t+p[2],0)/q.length;
+    polis.push({d:s.map(p=>`${p[0].toFixed(4)},${p[1].toFixed(4)}`).join(" "),
+                k:-prof, cor:f.cor, cls:f.cls, face:f.face});
+  }
+  polis.sort((x,y)=>x.k-y.k);                                 // longe primeiro
+  if(!polis.length){ ULT.n3d = 0; return; }
+
+  const meio = 1.05;                                          // meia-altura do plano de projeção
+  svg.setAttribute("viewBox", `${-meio} ${-meio} ${2*meio} ${2*meio}`);
+  svg.setAttribute("preserveAspectRatio","xMidYMid slice");
+  const g = document.createElementNS(SVGNS,"g");
+  svg.appendChild(g);
+  view.k = 1;
+
+  // claro no topo, escuro nas laterais — dá volume sem sombra calculada
+  const TOM = {topo:1, lado:0.72, "y-":0.78, "y+":0.62, "x+":0.70, "x-":0.58, base:0.45};
+  const COR = {esc:"var(--esc)", escv:"var(--esc)", base:"var(--pilar)", longa:"var(--longa)",
+               barr:"var(--barr)", placa:"var(--placa)", viga:"var(--plan-2)", pilar:"var(--pilar)", laje:"var(--plan)"};
+  const OP = {laje:0.30, placa:0.85};
+  polis.forEach(p=>{
+    const e=document.createElementNS(SVGNS,"polygon");
+    e.setAttribute("points", p.d);
+    e.setAttribute("fill", COR[p.cor]||"var(--plan)");
+    e.setAttribute("fill-opacity", (OP[p.cls]??1)*(TOM[p.face]??0.8));
+    e.setAttribute("stroke", COR[p.cor]||"var(--plan)");
+    e.setAttribute("stroke-width", 0.0012);
+    e.setAttribute("stroke-opacity", 0.5);
+    e.setAttribute("stroke-linejoin","round");
+    g.appendChild(e);
+  });
+  ULT.n3d = polis.length;
+}
+
+/* ===================================================================
+   DESENHO SVG
+   =================================================================== */
+const SVGNS = "http://www.w3.org/2000/svg";
+let view = {k:1, tx:0, ty:0};
+
+function desenhar(cfg, layout){
+  if(V3.modo){ desenhar3D(cfg, layout, ULT.rGov); return; }
+  const svg = $("svg");
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const semGeo = !GEO || !GEO.bb;
+  $("vazio").hidden = !semGeo;
+  if(semGeo) return;
+
+  const bb = GEO.bb;
+  const w = bb.x1-bb.x0, h = bb.y1-bb.y0;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+  const g = document.createElementNS(SVGNS,"g");
+  // DXF tem Y para cima; o SVG tem Y para baixo
+  g.setAttribute("transform", `translate(${view.tx} ${view.ty}) scale(${view.k}) translate(${-bb.x0} ${bb.y1}) scale(1 -1)`);
+  svg.appendChild(g);
+  const esc = 1/view.k;   // espessuras constantes na tela
+
+  const mk = (t,at) => { const e=document.createElementNS(SVGNS,t);
+    for(const k in at) e.setAttribute(k, at[k]); g.appendChild(e); return e; };
+  const path = (d,at) => mk("path", Object.assign({d, fill:"none"}, at));
+
+  // --- planta importada
+  if(chk("vPlan")){
+    let dFino="", dViga="", dPilar="";
+    GEO.lines.forEach(l=>{
+      if(LAY_IGN.test(l.lay)) return;
+      const s = `M${l.a[0]} ${l.a[1]}L${l.b[0]} ${l.b[1]}`;
+      if(LAY_PILAR.test(l.lay)) dPilar+=s; else if(LAY_VIGA.test(l.lay)) dViga+=s; else dFino+=s;
+    });
+    GEO.polys.forEach(p=>{
+      if(LAY_IGN.test(p.lay)) return;
+      const s = "M"+p.pts.map(pt=>pt.join(" ")).join("L")+(p.closed?"Z":"");
+      if(LAY_PILAR.test(p.lay)) dPilar+=s; else if(LAY_VIGA.test(p.lay)) dViga+=s; else dFino+=s;
+    });
+    GEO.arcs.forEach(a=>{
+      if(LAY_IGN.test(a.lay)) return;
+      const r=a.r, p0=[a.c[0]+r*Math.cos(a.a0*Math.PI/180), a.c[1]+r*Math.sin(a.a0*Math.PI/180)];
+      const p1=[a.c[0]+r*Math.cos(a.a1*Math.PI/180), a.c[1]+r*Math.sin(a.a1*Math.PI/180)];
+      let sw=(a.a1-a.a0+360)%360; const s=`M${p0[0]} ${p0[1]}A${r} ${r} 0 ${sw>180?1:0} 1 ${p1[0]} ${p1[1]}`;
+      if(LAY_PILAR.test(a.lay)) dPilar+=s; else dFino+=s;
+    });
+    if(dFino) path(dFino,{stroke:"var(--plan)","stroke-width":0.022*esc});
+    if(dViga) path(dViga,{stroke:"var(--plan-2)","stroke-width":0.035*esc});
+    if(dPilar) path(dPilar,{stroke:"var(--pilar)","stroke-width":0.045*esc, fill:"var(--pilar)","fill-opacity":0.28});
+  }
+
+  // --- placas de compensado
+  if(chk("vPlaca")) layout.placas.forEach(p=>{
+    mk("rect",{x:p.x, y:p.y, width:p.w, height:p.h, fill:"var(--placa)",
+      "fill-opacity":p.cheia?0.07:0.03, stroke:"var(--placa)","stroke-width":0.016*esc,
+      "stroke-dasharray":p.cheia?"":`${0.09*esc} ${0.07*esc}`});
+  });
+
+  // --- barrotes
+  if(chk("vBarr")){
+    let d=""; layout.barrotes.forEach(s=>{ d+=`M${s[0][0]} ${s[0][1]}L${s[1][0]} ${s[1][1]}`; });
+    if(d) path(d,{stroke:"var(--barr)","stroke-width":0.026*esc,"stroke-opacity":0.75});
+  }
+  // --- longarinas
+  if(chk("vLong")){
+    let d=""; layout.longas.forEach(s=>{ d+=`M${s[0][0]} ${s[0][1]}L${s[1][0]} ${s[1][1]}`; });
+    if(d) path(d,{stroke:"var(--longa)","stroke-width":0.055*esc});
+  }
+  // --- escoras
+  const raio = 0.11;
+  if(chk("vEsc")){
+    let d=""; layout.escoras.forEach(([x,y])=>{
+      d+=`M${x-raio} ${y}A${raio} ${raio} 0 1 1 ${x+raio} ${y}A${raio} ${raio} 0 1 1 ${x-raio} ${y}`
+       +`M${x-raio*0.6} ${y}L${x+raio*0.6} ${y}M${x} ${y-raio*0.6}L${x} ${y+raio*0.6}`;
+    });
+    if(d) path(d,{stroke:"var(--esc)","stroke-width":0.030*esc});
+  }
+  if(chk("vVigaEsc")){
+    let d=""; layout.escVigas.forEach(([x,y])=>{
+      const r=raio*0.85;
+      d+=`M${x-r} ${y-r}L${x+r} ${y+r}M${x-r} ${y+r}L${x+r} ${y-r}`;
+    });
+    if(d) path(d,{stroke:"var(--esc)","stroke-width":0.040*esc});
+  }
+  // --- marcas da prancha
+  if(chk("vMarc")){
+    const gm = document.createElementNS(SVGNS,"g"); g.appendChild(gm);
+    GEO.txts.filter(t=>/^[LVP]F?\d+[A-Z]?$/i.test(t.s) && t.x>=bb.x0 && t.x<=bb.x1 && t.y>=bb.y0 && t.y<=bb.y1)
+      .forEach(t=>{
+        const e=document.createElementNS(SVGNS,"text");
+        e.setAttribute("x",t.x); e.setAttribute("y",-t.y);
+        e.setAttribute("transform","scale(1 -1)");
+        e.setAttribute("font-size",0.30*esc); e.setAttribute("font-family","var(--f-num)");
+        e.setAttribute("fill","var(--ink-2)"); e.setAttribute("text-anchor","middle");
+        e.textContent=t.s; gm.appendChild(e);
+      });
+  }
+}
+
+function aplicarZoom(){ desenhar(cfgAtual(), ULT.layout||{placas:[],barrotes:[],longas:[],escoras:[],escVigas:[]}); }
+function enquadrar(){ view = {k:1, tx:0, ty:0}; aplicarZoom(); }
+
+/* ===================================================================
+   RENDER
+   =================================================================== */
+const ULT = {};   // guarda o último resultado para o zoom não recalcular
+const pill = fu => { const p=fu*100;
+  if(!isFinite(fu)) return `<span class="pill bad">—</span>`;
+  return `<span class="pill ${p<=85?"ok":p<=100?"warn":"bad"}">${fmt(p,0)}%</span>`; };
+const esq = r => r.nv===1 ? "vão isostático" : `${r.nv} vãos contínuos`;
+const obs = r => (r.iso?`\n  nota: ${r.iso}`:"") + (r.lim?`\n  nota: ${r.lim}`:"");
+const TIPO = {"laje-mac":"maciça","laje-nerv":"nervurada","laje-pre":"treliçada"};
+
+function render(){
+  const cfg = cfgAtual();
+  $("stamp").textContent = val("projName") || ULT.nome || "—";
+
+  const lajes = ELS.filter(e=>e.t.startsWith("laje")).map(e=>calcLaje(e,cfg));
+  const vigas = ELS.filter(e=>e.t==="viga").map(e=>calcViga(e,cfg));
+  const pilares = ELS.filter(e=>e.t==="pilar");
+
+  // pano que dita a grade: o de menor espaçamento de apoio
+  fillLajeGov(lajes);
+  const govId = val("lajeGov");
+  let rGov = lajes.find(r=>r.el.id===govId);
+  if(!rGov) rGov = lajes.slice().sort((a,b)=>(a.sViga*a.sEsc)-(b.sViga*b.sEsc))[0];
+  const rVigaGov = vigas.slice().sort((a,b)=>a.s-b.s)[0];
+
+  const layout = gerarLayout(cfg, rGov, rVigaGov);
+  ULT.layout = layout; ULT.cfg = cfg; ULT.lajes = lajes; ULT.vigas = vigas; ULT.rGov = rGov;
+  desenhar(cfg, layout);
+  if(V3.modo && $("n3d")) $("n3d").textContent =
+    `${fmt(ULT.n3d||0,0)} faces · ${fmt(CAM.dist,1)} m do pivô · escora ${rGov?fmt(rGov.Hl,2):"—"} m`;
+
+  // ---- resumo
+  const areaTot = lajes.reduce((s,r)=>s+r.area,0);
+  const Vtot = lajes.reduce((s,r)=>s+r.V,0) + vigas.reduce((s,r)=>s+r.V,0);
+  const nDes = layout.escoras.length + (chk("vVigaEsc")?layout.escVigas.length:0);
+  const nTab = lajes.reduce((s,r)=>s+r.nEsc,0) + vigas.reduce((s,r)=>s+r.nEsc,0);
+  const vd = VERTICAIS[cfg.vertKey];
+  const fuMax = Math.max(0,...lajes.map(r=>r.fu),...vigas.map(r=>r.fu));
+  $("kpis").innerHTML = [
+    ["Grade", rGov?`${fmt(rGov.sViga,2)} × ${fmt(rGov.sEsc,2)}`:"—", rGov?`m · dita por ${rGov.el.id}`:""],
+    ["Área do pavimento", fmt(areaBruta(cfg,areaTot).a,0), `m² bruta · ${fmt(areaTot,0)} líquida`],
+    ["Pé-direito", fmt(cfg.H,2), "m de escora"],
+    [vd.fam==="torre"?"Verticais":"Escoras", GEO&&GEO.mask?fmt(nDes,0):fmt(nTab,0), GEO&&GEO.mask?"no desenho":"pela área"],
+    ["Placas", GEO&&GEO.mask?fmt(layout.placas.length,0):"—", `${fmt(cfg.placa.b*100,0)} × ${fmt(cfg.placa.h*100,0)} cm`],
+    ["Carga máxima", fmt(Math.max(0,...lajes.map(r=>r.qk)),2), "kN/m²"],
+    ["Aproveitamento", fmt(fuMax*100,0)+"%", fuMax>1?"acima da capacidade":"dentro da capacidade"]
+  ].map(([k,v,s])=>`<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+  // ---- legenda do desenho
+  $("legenda").innerHTML = `
+    <span><i style="border-color:var(--longa);border-top-width:3px"></i> longarina — ${cfg.viga.nome}, a cada ${rGov?fmt(rGov.sViga,2):"—"} m</span>
+    <span><i style="border-color:var(--barr)"></i> barrote — ${cfg.barrote.nome}, a cada ${rGov?fmt(rGov.sBarrote,2):"—"} m</span>
+    <span><u></u> escora de laje — ${vd.nome}, a cada ${rGov?fmt(rGov.sEsc,2):"—"} m</span>
+    <span><b style="color:var(--esc);font-family:var(--f-num);font-size:13px;line-height:1">&times;</b> escora de viga — a cada ${rVigaGov?fmt(rVigaGov.s,2):"—"} m${GEO&&GEO.eixos?`, em ${GEO.eixos.length} eixos`:""}</span>
+    <span><s></s> placa ${fmt(cfg.placa.b*100,0)} × ${fmt(cfg.placa.h*100,0)} cm</span>
+    <span><i style="border-color:var(--plan-2)"></i> planta importada</span>`;
+
+  // ---- gavetas
+  $("pLajes").innerHTML = paneLajes(lajes,cfg,rGov);
+  $("cLajes").textContent = lajes.length ? `${lajes.length} panos · ${fmt(areaTot,0)} m²` : "sem lajes";
+  $("pVigas").innerHTML = paneVigas(vigas,cfg);
+  $("cVigas").textContent = vigas.length ? `${vigas.length} vigas · ${fmt(vigas.reduce((s,r)=>s+r.comp,0),0)} m` : "sem vigas";
+  $("pVert").innerHTML = paneVert(pilares,vigas,cfg);
+  $("cVert").textContent = `${pilares.length} pilares`;
+  $("pEstab").innerHTML = paneEstab(lajes,cfg,Vtot,areaTot);
+  $("cEstab").textContent = `ΣV ${fmt(Vtot,0)} kN`;
+  $("pQuant").innerHTML = paneQuant(lajes,vigas,cfg,layout);
+  $("cQuant").textContent = `${fmt(GEO&&GEO.mask?nDes:nTab,0)} apoios`;
+  atualizarOrcamento(listaMateriais(lajes,vigas,cfg,layout), cfg);
+  $("pDesf").innerHTML = paneDesf(lajes,cfg,GEO&&GEO.mask?nDes:nTab);
+  $("pMem").innerHTML = lajes.map(r=>memLaje(r,cfg)).join("\n\n") || "Sem lajes.";
+  $("cEls").textContent = `${ELS.length} elementos`;
+  renderEls();
+  montarFolha(cfg, lajes, vigas, rGov, layout, Vtot, areaTot);
+
+  // ---- informativos da configuração
+  const pd = cfg.nivLaje - cfg.nivApoio;
+  if($("peDireito")) $("peDireito").innerHTML =
+    `<b>Pé-direito de escoramento H = ${fmt(cfg.H,2)} m</b><br>
+     ${fmt(cfg.nivLaje,2)} − ${fmt(cfg.hLajeRef,2)} (laje) − ${fmt(cfg.nivApoio,2)} (apoio) − ${fmt(cfg.eForma,2)} (fôrma+barrote+viga)
+     <br>pé-direito estrutural entre níveis: ${fmt(pd,2)} m`;
+  const ab = areaBruta(cfg, areaTot);
+  if($("areaInfo")) $("areaInfo").innerHTML =
+    `<b>Líquida ${fmt(areaTot,1)} m² · bruta ${fmt(ab.a,1)} m²</b> (${ab.via})
+     ${GEO&&GEO.mask ? `<br>a geometria dá ${fmt(GEO.mask.area,1)} m² entre vigas e ${fmt(GEO.mask.areaBruta,1)} m² fechada;
+     a diferença é a faixa das vigas, que a grade de laje não cobre e as escoras de viga atendem à parte.` : ""}`;
+
+  const nerv = lajes.filter(r=>r.el.t==="laje-nerv");
+  if($("nervInfo")) $("nervInfo").innerHTML = nerv.length
+    ? `<b>h equivalente ${fmt(nerv[0].pp.heq,1)} cm → ${fmt(nerv[0].gLaje,2)} kN/m²</b> para h = ${nerv[0].el.a} cm.
+       Uma maciça de mesma espessura daria ${fmt(cfg.gConc*nerv[0].el.a/100,2)} kN/m² — a cubeta tira
+       ${fmt(100*(1-nerv[0].gLaje/(cfg.gConc*nerv[0].el.a/100)),0)}% do peso próprio.`
+    : `Nenhum pano nervurado. Troque o tipo da laje em <b>Elementos da prancha</b> para usar estes campos.`;
+
+}
+
+function paneLajes(L,cfg,rGov){
+  if(!L.length) return `<div class="note">Nenhuma laje. Importe a prancha ou lance em <b>Elementos da prancha</b>.</div>`;
+  const rows = L.map(r=>`<tr>
+    <td><b>${r.el.id}</b>${rGov&&r.el.id===rGov.el.id?' <span class="pill ok">grade</span>':''}
+      <div style="font-size:10.5px;color:var(--ink-3);font-family:var(--f-num)">${TIPO[r.el.t]} h=${r.el.a}${r.el.e?` e=${r.el.e}`:""}</div></td>
+    <td class="num">${fmt(r.area,1)}</td><td class="num">${fmt(r.gLaje,2)}</td>
+    <td class="num">${fmt(r.qk,2)}${r.minAplic?' <span class="pill warn">mín</span>':''}</td>
+    <td class="num">${fmt(r.Hl,2)}</td><td class="num">${fmt(r.sBarrote,2)}</td>
+    <td class="num">${fmt(r.sViga,2)}</td>
+    <td class="num">${fmt(r.sEsc,2)}${r.limApoio?' <span class="pill warn">apoio</span>':''}</td>
+    <td class="num">${fmt(r.Pk,1)}</td><td class="num">${fmt(r.capUso,1)}</td>
+    <td>${pill(r.fu)}</td><td class="num">${fmt(r.nEsc,0)}</td></tr>`).join("");
+  return `<div class="note">O desenho usa uma grade única para todo o pavimento, ditada pelo pano marcado — como o projeto de
+    referência, que adotou torre painel para toda a área. Nos panos mais leves a grade fica conservadora; a coluna
+    <b>s apoio</b> mostra o que cada pano pediria sozinho.</div>
+    <div class="scroll"><table><thead><tr><th>Laje</th><th class="num">Área<br>m²</th><th class="num">g laje<br>kN/m²</th>
+    <th class="num">q total<br>kN/m²</th><th class="num">H escora<br>m</th><th class="num">s barrote<br>m</th>
+    <th class="num">s longarina<br>m</th><th class="num">s apoio<br>m</th><th class="num">P<br>kN</th>
+    <th class="num">P adm<br>kN</th><th>Aprov.</th><th class="num">Qtd</th></tr></thead><tbody>${rows}</tbody>
+    <tfoot><tr><td>Total</td><td class="num">${fmt(L.reduce((s,r)=>s+r.area,0),1)}</td><td colspan="9"></td>
+    <td class="num">${fmt(L.reduce((s,r)=>s+r.nEsc,0),0)}</td></tr></tfoot></table></div>`;
+}
+function memLaje(r,cfg){
+  const e=r.el;
+  return `<b>LAJE ${e.id} — ${TIPO[e.t]} h = ${e.a} cm${e.e?`, rebaixo e = ${e.e} cm`:""} — ${fmt(r.area,1)} m²</b>
+AÇÕES (NBR 15696 4.2)
+  peso próprio da laje .................. ${fmt(r.gLaje,2)} kN/m²  (${r.pp.via})
+  peso da fôrma ......................... ${fmt(cfg.gForma,2)} kN/m²
+  peso do escoramento ................... ${fmt(cfg.gEsc,2)} kN/m²
+  sobrecarga de trabalho (≥ 2,0) ........ ${fmt(cfg.qTrab,2)} kN/m²
+  q característico ...................... ${fmt(r.qk,2)} kN/m²${r.minAplic?`   ← elevado ao mínimo de ${fmt(cfg.qMin,1)} kN/m² (4.2 e)`:""}
+  q de cálculo .......................... ${fmt(r.qd,2)} kN/m²  ${cfg.mode==="elu"?"(γq = 1,4)":"(tensões admissíveis)"}
+  q de serviço para flecha .............. ${fmt(r.qserv,2)} kN/m²  (peso do concreto + 1,0 kN/m², sem coeficiente — 4.3.2)
+
+1 FÔRMA DE CONTATO — ${cfg.forma.nome}, faixa de 1,00 m, ${esq(r.rF)}
+  flexão ${fmt(r.rF.Lf,3)} m · cortante ${fmt(r.rF.Lv,3)} m · flecha L/${cfg.divFlecha} ${fmt(r.rF.Ld,3)} m → governa ${r.rF.gov}${obs(r.rF)}
+  <b>espaçamento das travessas s = ${fmt(r.sBarrote,2)} m</b>
+
+2 TRAVESSA — ${cfg.barrote.nome}, ${esq(r.rB)}
+  ${r.rB.desc}
+  w = ${fmt(r.qd,2)} × ${fmt(r.sBarrote,2)} = ${fmt(r.qd*r.sBarrote,2)} kN/m
+  flexão ${fmt(r.rB.Lf,3)} · cortante ${fmt(r.rB.Lv,3)} · flecha ${fmt(r.rB.Ld,3)} m → governa ${r.rB.gov}${obs(r.rB)}
+  <b>espaçamento das longarinas s = ${fmt(r.sViga,2)} m</b>
+
+3 LONGARINA — ${cfg.viga.nome}, ${esq(r.rV)}
+  ${r.rV.desc}
+  w = ${fmt(r.qd,2)} × ${fmt(r.sViga,2)} = ${fmt(r.qd*r.sViga,2)} kN/m
+  flexão ${fmt(r.rV.Lf,3)} · cortante ${fmt(r.rV.Lv,3)} · flecha ${fmt(r.rV.Ld,3)} m → governa ${r.rV.gov}${obs(r.rV)}
+  <b>espaçamento dos apoios s = ${fmt(r.sEsc,2)} m</b>${r.limApoio?"   ← reduzido pela carga admissível do apoio":""}
+
+4 APOIO VERTICAL — ${r.cv.label}, H = ${fmt(r.Hl,2)} m
+  ${r.cv.det}${r.cv.fora?`\n  ATENÇÃO: altura ${r.cv.fora} da faixa tabelada do equipamento.`:""}
+  P = ${fmt(r.qk,2)} × ${fmt(r.sViga,2)} × ${fmt(r.sEsc,2)} = ${fmt(r.Pk,2)} kN${cfg.mode==="elu"?`  (P_d = ${fmt(r.Pd,2)} kN)`:""}
+  carga de utilização do catálogo ....... ${fmt(r.capUso,2)} kN  (FS ≥ 2,0 sobre o limite de flambagem — A.3)
+  aproveitamento ........................ ${fmt(r.fu*100,0)}%  ${r.fu<=1?"VERIFICA":"NÃO VERIFICA"}  (meta ${fmt(cfg.fuMeta*100,0)}%)
+  quantidade no pano .................... ${fmt(r.nEsc,0)} apoios
+
+5 BASE — ${r.base.nome}
+  P / capacidade = ${fmt(r.Pk,2)} / ${fmt(r.base.cap,2)} kN = ${fmt(r.fuBase*100,0)}%  ${r.fuBase<=1?"VERIFICA":"NÃO VERIFICA"}
+  tensão no apoio = ${fmt(r.sigBase,0)} kPa vs ${fmt(cfg.sigSolo,0)} kPa adm = ${fmt(r.fuSolo*100,0)}%  ${r.fuSolo<=1?"VERIFICA":"NÃO VERIFICA"}
+
+6 REESCORAMENTO (Anexo C)
+  malha ≤ ${fmt(cfg.reMalha,2)} m · sobrecarga evolutiva ≥ ${fmt(cfg.reSobre,1)} kN/m² · ciclo ≥ 14 dias (6.5)`;
+}
+function paneVigas(V,cfg){
+  if(!V.length) return `<div class="note">Nenhuma viga na prancha.</div>`;
+  // agrupa por seção: o espaçamento depende de b×h, não do comprimento
+  const grp = {};
+  V.forEach(r=>{ const k=`${r.el.b}x${r.el.h}`; (grp[k]=grp[k]||{r, ids:[], comp:0}); grp[k].ids.push(r.el.id); grp[k].comp+=r.comp; });
+  const rows = Object.entries(grp).sort((a,b)=>a[1].r.s-b[1].r.s).map(([k,o])=>`<tr>
+    <td><b>${k} cm</b><div style="font-size:10.5px;color:var(--ink-3);font-family:var(--f-num)">${o.ids.length} vigas: ${o.ids.slice(0,8).join(" ")}${o.ids.length>8?" …":""}</div></td>
+    <td class="num">${fmt(o.comp,1)}</td><td class="num">${fmt(o.r.wk,2)}</td><td class="num">${fmt(o.r.Hviga,2)}</td>
+    <td class="num">${fmt(o.r.rFundo.L,2)}</td><td class="num">${fmt(o.r.s,2)}</td>
+    <td class="num">${fmt(o.r.Pk,1)}</td><td class="num">${fmt(o.r.capUso,1)}</td>
+    <td>${pill(o.r.fu)}</td><td class="num">${fmt(Math.ceil(o.comp/o.r.s)+o.ids.length,0)}</td></tr>`).join("");
+  const sMin = Math.min(...V.map(r=>r.s));
+  return `<div class="note">Agrupado por seção, porque o espaçamento das escoras depende de b × h e não do comprimento.
+    O desenho marca as escoras de viga no espaçamento mais apertado, <b>${fmt(sMin,2)} m</b>, válido para todas.
+    Fundo de viga com sarrafos 5,00 × 2,50 cm é o padrão do projeto de referência.</div>
+    <div class="scroll"><table><thead><tr><th>Seção</th><th class="num">Compr.<br>m</th><th class="num">w<br>kN/m</th>
+    <th class="num">H escora<br>m</th><th class="num">vão fundo<br>m</th><th class="num">s escora<br>m</th>
+    <th class="num">P<br>kN</th><th class="num">P adm<br>kN</th><th>Aprov.</th><th class="num">Qtd</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+function paneVert(P,V,cfg){
+  const items = P.map(p=>({id:p.id,b:p.b,h:p.h,alt:p.q,kind:"pilar"}));
+  const secs = {}; V.forEach(r=>{ secs[`${r.el.b}x${r.el.h}`] = r.el; });
+  Object.entries(secs).forEach(([k,e])=>items.push({id:k,b:e.b,h:e.h,alt:e.h/100,kind:"lateral de viga"}));
+  if(!items.length) return `<div class="note">Nenhum pilar ou parede na prancha.</div>`;
+  const rows = items.map(it=>{
+    const pr = pressao(it.alt,cfg), n = Math.ceil(it.alt/pr.sGravata);
+    return `<tr><td><b>${it.id}</b><div style="font-size:10.5px;color:var(--ink-3);font-family:var(--f-num)">${it.kind} ${it.b}×${it.h}</div></td>
+      <td class="num">${fmt(it.alt,2)}</td><td class="num">${fmt(pr.pHidro,1)}</td><td class="num">${fmt(pr.pb,1)}</td>
+      <td class="num">${fmt(pr.hs,2)}</td><td class="num">${fmt(pr.sGravata,2)}</td><td class="num">${n}</td>
+      <td class="num">${fmt(pr.pb*pr.sGravata*(it.b/100),1)}</td></tr>`;
+  }).join("");
+  return `<div class="note">Anexo D: a hidrostática γ·h é o máximo possível e serve de limite superior. Pressão adotada:
+    <b>${cfg.pressMod==="hidro"?"hidrostática":"diagrama D.1, aproximação"}</b>.
+    ${cfg.pressMod==="diag"?"As retas do diagrama estão por aproximação — confira contra a Figura D.1 da norma antes de usar em projeto.":""}
+    Vale para fôrma vertical com variação até ±5° do prumo; ancorar contra o vento com escoras de prumo.</div>
+    <div class="scroll"><table><thead><tr><th>Elemento</th><th class="num">Altura<br>m</th><th class="num">γ·h<br>kN/m²</th>
+    <th class="num">p adotada<br>kN/m²</th><th class="num">h<sub>s</sub><br>m</th><th class="num">s gravata<br>m</th>
+    <th class="num">N° gravatas</th><th class="num">F tirante<br>kN</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function paneEstab(L,cfg,Vtot,areaTot){
+  const H5 = cfg.pctH*Vtot;
+  const ab = areaBruta(cfg, areaTot);
+  const perim = cfg.perimMan>0 ? cfg.perimMan : 4*Math.sqrt(Math.max(ab.a,1));
+  const Av = perim*cfg.H, Hv = cfg.qVento*Av, Hg = Math.max(H5,Hv);
+  const vd = VERTICAIS[cfg.vertKey];
+  return `<div class="scroll"><table><thead><tr><th>Verificação</th><th class="num">Valor</th><th>Critério</th></tr></thead><tbody>
+    <tr><td>Carga vertical total ΣV</td><td class="num">${fmt(Vtot,0)} kN</td><td>soma das cargas características</td></tr>
+    <tr><td>Esforço horizontal mínimo</td><td class="num">${fmt(H5,1)} kN</td><td>${fmt(cfg.pctH*100,1)}% de ΣV, nos dois sentidos — 4.2 l)</td></tr>
+    <tr><td>Área exposta ao vento</td><td class="num">${fmt(Av,0)} m²</td>
+      <td>perímetro ${fmt(perim,1)} m ${cfg.perimMan>0?"(informado)":"(estimado pela área bruta)"} × H ${fmt(cfg.H,2)} m</td></tr>
+    <tr><td>Esforço de vento</td><td class="num">${fmt(Hv,1)} kN</td><td>${fmt(cfg.qVento,2)} kN/m², mínimo 0,6 — 4.2 j)</td></tr>
+    <tr><td><b>Horizontal governante</b></td><td class="num"><b>${fmt(Hg,1)} kN</b></td><td>${Hg===H5?"governa o percentual de ΣV":"governa o vento"}; somar os dois com efeito dinâmico de bomba</td></tr>
+    <tr><td>Travamento horizontal</td><td class="num">${fmt(cfg.trav,2)} m</td><td>nas duas direções no plano de flambagem — A.3.2</td></tr>
+    </tbody></table></div>
+    <div class="note w"><b>Fora do escopo desta calculadora.</b> O contraventamento, a ancoragem em pontos fixos externos e a análise
+    global de estabilidade são do responsável técnico pela execução (B.2.2 e 4.2 i). Em torres periféricas com mão francesa, amarrar com
+    tubo e abraçadeiras ou horizontais nas torres internas na linha da mão francesa. Em plataforma fora da projeção do piso de apoio,
+    amarrar os barrotes com cabo de aço Ø 8 mm ancorado em ganchos pré-posicionados.</div>
+    <div class="note"><b>${vd.nome}.</b> ${vd.nota||""}</div>`;
+}
+// Lista única de materiais, usada pelo quantitativo e pelo orçamento.
+function listaMateriais(L,V,cfg,layout){
+  const geo = GEO && GEO.mask;
+  const areaTot = geo ? geo.area : L.reduce((s,r)=>s+r.area,0);
+  const nEsc = geo ? layout.escoras.length : L.reduce((s,r)=>s+r.nEsc,0);
+  const nEscV = geo ? layout.escVigas.length : V.reduce((s,r)=>s+r.nEsc,0);
+  const nAp = nEsc + nEscV;
+  const mBar = geo ? layout.barrotes.reduce((s,t)=>s+Math.hypot(t[1][0]-t[0][0],t[1][1]-t[0][1]),0)
+                   : L.reduce((s,r)=>s+r.area/r.sBarrote,0);
+  const mLong = geo ? layout.longas.reduce((s,t)=>s+Math.hypot(t[1][0]-t[0][0],t[1][1]-t[0][1]),0)
+                    : L.reduce((s,r)=>s+r.area/r.sViga,0);
+  const nPl = geo ? layout.placas.length : Math.ceil(areaTot/(cfg.placa.b*cfg.placa.h)*1.08);
+  const areaLat = V.reduce((s,r)=>s+2*r.comp*r.el.h/100,0);
+  const vd = VERTICAIS[cfg.vertKey], perda = 1.08;
+  const nT = vd.fam==="torre" ? Math.ceil(nAp/(vd.verticais||4)) : 0;
+  const pBar = Math.ceil(mBar*perda/Math.max(cfg.barrote.comp||2,0.1));
+  const pLong = Math.ceil(mLong*perda/Math.max(cfg.viga.comp||2.3,0.1));
+  return {geo, areaTot, areaLat, nEsc, nEscV, nAp, nT, mBar, mLong, nPl, vd,
+    itens:[
+    {k:"placa", nome:cfg.forma.nome, un:"un", qtd:nPl, consumivel:true,
+      obs:geo?`contadas no desenho, ${fmt(cfg.placa.b*100,0)} × ${fmt(cfg.placa.h*100,0)} cm`:"estimado pela área, com 8% de perda"},
+    {k:"barrote", nome:cfg.barrote.nome, un:"un", qtd:pBar,
+      obs:`${fmt(mBar*perda,0)} m em peças de ${fmt(cfg.barrote.comp||2,2)} m`},
+    {k:"longarina", nome:cfg.viga.nome, un:"un", qtd:pLong,
+      obs:`${fmt(mLong*perda,0)} m em peças de ${fmt(cfg.viga.comp||2.3,2)} m`},
+    {k:"apoio", nome:vd.fam==="torre"?"Vertical de torre — "+vd.nome:vd.nome, un:"un", qtd:nAp,
+      obs:vd.fam==="torre"?`${nT} torres de ${vd.verticais||4} verticais`:`${fmt(nEsc,0)} de laje + ${fmt(nEscV,0)} de viga`},
+    {k:"forcado", nome:"Forcado / suporte para forcado", un:"un", qtd:nAp, obs:"um por apoio com longarina em cima"},
+    {k:"base", nome:cfg.base.nome, un:"un", qtd:nAp, obs:"um por apoio vertical"},
+    {k:"trava", nome:"Trava escora / horizontal", un:"un", qtd:Math.ceil(nAp*2*Math.max(1,cfg.H/cfg.trav)),
+      obs:`travamento nas duas direções a cada ${fmt(cfg.trav,2)} m`},
+    {k:"cruzeta", nome:"Cruzeta para escora", un:"un", qtd:Math.ceil(nAp*0.2), obs:"apoios que recebem duas longarinas"},
+    {k:"tripe", nome:"Tripé", un:"un", qtd:Math.ceil(nAp*0.1), obs:"estabilização de escoras isoladas na montagem"},
+    {k:"sarrafo", nome:"Sarrafo 2,5 × 5,0 cm", un:"m", qtd:V.reduce((s,r)=>s+r.comp*2,0)*perda, consumivel:true, obs:"fundo de viga"},
+    {k:"cabo", nome:"Cabo de aço Ø 8 mm", un:"m", qtd:Math.ceil(areaTot*0.05), consumivel:true,
+      obs:"amarração de plataforma fora da projeção do piso"}
+  ]};
+}
+
+function paneQuant(L,V,cfg,layout){
+  const M = listaMateriais(L,V,cfg,layout);
+  const {geo, areaTot, areaLat, nEsc, nEscV} = M;
+  const rows = M.itens.map(it=>[it.nome, it.un, it.qtd, it.obs])
+    .concat([[cfg.forma.nome+" — área equivalente", "m²", (areaTot+areaLat)*1.08, "laje + laterais de viga, com 8% de perda"]]);
+  return `<div class="note">${geo
+    ? `Contado no desenho: <b>${fmt(areaTot,0)} m² de laje</b> medidos pela máscara do pavimento, com ${fmt(nEsc,0)} escoras de laje
+       e ${fmt(nEscV,0)} de viga posicionadas. Compare com a área informada na configuração (${fmt(L.reduce((s,r)=>s+r.area,0),0)} m²).`
+    : `Estimado pelas áreas informadas, sem desenho. Importe o DXF para contar peça por peça.`}</div>
+    <div class="scroll"><table><thead><tr><th>Material</th><th>Un.</th><th class="num">Quantidade</th><th>Observação</th></tr></thead>
+    <tbody>${rows.map(([m,u,q,o])=>`<tr><td>${m}</td>
+      <td style="text-align:left;font-family:var(--f-num);font-size:11px;color:var(--ink-3)">${u}</td>
+      <td class="num"><b>${fmt(q, u==="un"?0:1)}</b></td>
+      <td style="text-align:left;font-size:11.5px;color:var(--ink-3)">${o}</td></tr>`).join("")}</tbody></table></div>
+    <div class="note">As peças de madeira complementares — compensados, barrotes, sarrafos, pontaletes, cunhas e calços — são de
+    responsabilidade do cliente quanto a cálculo, dimensionamento, fornecimento e instalação. Pode haver substituição por peças
+    similares na separação de materiais, mantendo funcionalidade e desempenho.</div>`;
+}
+/* ===================================================================
+   ORÇAMENTO — venda, aluguel e o ponto de equilíbrio entre os dois
+   =================================================================== */
+function calcOrcamento(M,cfg){
+  const nPav = Math.max(1,ORC.nPav), jogos = Math.max(1,ORC.jogos);
+  const meses = nPav*Math.max(1,ORC.ciclo)/30;
+  const reuso = Math.max(1,num("reusoComp")||10);
+  // montagem e desmontagem se contratam por m² de laje medido em planta, não pelo vão entre vigas
+  const area = areaBruta(cfg, M.areaTot).a;
+
+  const linhas = M.itens.map(it=>{
+    const p = PRECOS[it.k] || {venda:0,aluguel:0};
+    // equipamento fica no canteiro em `jogos` conjuntos simultâneos
+    const canteiro = it.qtd*jogos;
+    // consumível é comprado de novo quando esgota o reaproveitamento
+    const compra = it.consumivel ? Math.max(canteiro, Math.ceil(it.qtd*nPav/reuso)) : canteiro;
+    return {...it, canteiro, compra,
+      venda: compra*p.venda*(it.consumivel?1:1+ORC.reposicao/100),
+      aluguelMes: it.consumivel ? 0 : canteiro*p.aluguel,
+      aluguel: it.consumivel ? compra*p.venda : canteiro*p.aluguel*meses,
+      soAluga: !it.consumivel && p.aluguel>0, soVende: it.consumivel || !p.aluguel};
+  });
+
+  const eqVenda = linhas.filter(l=>!l.consumivel).reduce((s,l)=>s+l.venda,0);
+  const eqMes   = linhas.reduce((s,l)=>s+l.aluguelMes,0);
+  const consum  = linhas.filter(l=>l.consumivel).reduce((s,l)=>s+l.venda,0);
+  const frete   = ORC.frete*Math.max(0,ORC.viagens);
+  const servico = (ORC.montagem+ORC.desmontagem)*area*nPav;
+
+  const base = m => m+consum+frete+servico;
+  const totV = base(eqVenda)*(1+ORC.impostos/100);
+  const totA = base(eqMes*meses)*(1+ORC.impostos/100);
+  // equilíbrio: só o equipamento, que é o que muda entre comprar e alugar
+  const mesesEq = eqMes>0 ? eqVenda/eqMes : Infinity;
+  const pavEq = isFinite(mesesEq) ? mesesEq*30/Math.max(1,ORC.ciclo) : Infinity;
+
+  return {linhas, nPav, jogos, meses, reuso, area, eqVenda, eqMes, consum, frete, servico,
+          totV, totA, mesesEq, pavEq, aluguelTotEq:eqMes*meses};
+}
+
+function montarOrcamentoUI(){
+  const n = (id,v,st,t) => `<input type="number" id="${id}" value="${v}" step="${st}" title="${t||""}"
+    style="width:100%;padding:4px 6px;font-size:12px">`;
+  $("pOrc").innerHTML = `
+    <div class="note w"><b>Os preços abaixo são valores de partida, não são cotação.</b> Troque pelos da sua proposta ou do
+    fornecedor antes de usar. O que o app garante são as quantidades, que vêm do desenho; o preço é seu.</div>
+
+    <div class="sub">Parâmetros da obra</div>
+    <div class="grid3">
+      <div class="f"><label for="oModo">Comparar</label><select id="oModo">
+        <option value="comparar">Venda e aluguel lado a lado</option>
+        <option value="venda">Só venda</option><option value="aluguel">Só aluguel</option></select></div>
+      <div class="f"><label for="oPav">Pavimentos a escorar</label>${n("oPav",ORC.nPav,1)}</div>
+      <div class="f"><label for="oCiclo">Ciclo por pavimento <span class="u">(dias)</span></label>${n("oCiclo",ORC.ciclo,1)}</div>
+    </div>
+    <div class="grid3">
+      <div class="f"><label for="oJogos">Jogos simultâneos</label>${n("oJogos",ORC.jogos,1,"conjuntos de escoramento no canteiro ao mesmo tempo")}</div>
+      <div class="f"><label for="oFrete">Frete por viagem <span class="u">(R$)</span></label>${n("oFrete",ORC.frete,100)}</div>
+      <div class="f"><label for="oViagens">Viagens</label>${n("oViagens",ORC.viagens,1)}</div>
+    </div>
+    <div class="grid3">
+      <div class="f"><label for="oMont">Montagem <span class="u">(R$/m²)</span></label>${n("oMont",ORC.montagem,1)}</div>
+      <div class="f"><label for="oDesm">Desmontagem <span class="u">(R$/m²)</span></label>${n("oDesm",ORC.desmontagem,1)}</div>
+      <div class="f"><label for="oRep">Reposição na compra <span class="u">(%)</span></label>${n("oRep",ORC.reposicao,1,"perda e avaria do equipamento comprado")}</div>
+    </div>
+    <div class="grid3">
+      <div class="f"><label for="oImp">Impostos e BDI <span class="u">(%)</span></label>${n("oImp",ORC.impostos,1)}</div>
+    </div>
+    <div class="note" id="oResumo">—</div>
+
+    <div class="sub">Preços unitários</div>
+    <div class="scroll"><table><thead><tr><th>Item</th><th class="num">Qtd / pav.</th><th class="num">No canteiro</th>
+      <th class="num">Venda un.</th><th class="num">Aluguel un./mês</th><th class="num">Total venda</th><th class="num">Total aluguel</th>
+    </tr></thead><tbody id="oBody"></tbody><tfoot id="oFoot"></tfoot></table></div>
+
+    <div class="sub">Fechamento</div>
+    <div class="scroll"><table><tbody id="oTot"></tbody></table></div>
+    <div class="note" id="oEquil">—</div>`;
+  const bind = (id,k,f)=>{ $(id).addEventListener("input", ()=>{ ORC[k] = f?f($(id).value):(parseFloat($(id).value)||0); render(); }); };
+  bind("oPav","nPav"); bind("oCiclo","ciclo"); bind("oJogos","jogos"); bind("oFrete","frete");
+  bind("oViagens","viagens"); bind("oMont","montagem"); bind("oDesm","desmontagem");
+  bind("oRep","reposicao"); bind("oImp","impostos");
+  $("oModo").addEventListener("change", ()=>{ ORC.modo = $("oModo").value; render(); });
+  $("oModo").value = ORC.modo;
+
+  // linhas de preço: criadas uma vez, para o campo não perder o foco a cada tecla
+  $("oBody").innerHTML = Object.keys(PRECOS).map(k=>`<tr data-k="${k}">
+    <td><b id="on_${k}">${PRECOS[k].rot}</b><div id="oo_${k}" style="font-size:10.5px;color:var(--ink-3);text-align:left"></div></td>
+    <td class="num" id="oq_${k}">—</td><td class="num" id="oc_${k}">—</td>
+    <td><input type="number" id="pv_${k}" value="${PRECOS[k].venda}" step="1" style="width:84px;padding:3px 5px;font-size:12px;text-align:right"></td>
+    <td><input type="number" id="pa_${k}" value="${PRECOS[k].aluguel}" step="0.5" style="width:84px;padding:3px 5px;font-size:12px;text-align:right"></td>
+    <td class="num" id="tv_${k}">—</td><td class="num" id="ta_${k}">—</td></tr>`).join("");
+  Object.keys(PRECOS).forEach(k=>{
+    $("pv_"+k).addEventListener("input", ()=>{ PRECOS[k].venda = parseFloat($("pv_"+k).value)||0; render(); });
+    $("pa_"+k).addEventListener("input", ()=>{ PRECOS[k].aluguel = parseFloat($("pa_"+k).value)||0; render(); });
+  });
+}
+
+function atualizarOrcamento(M,cfg){
+  const o = calcOrcamento(M,cfg);
+  const mV = ORC.modo!=="aluguel", mA = ORC.modo!=="venda";
+  o.linhas.forEach(l=>{
+    $("on_"+l.k).textContent = l.nome;
+    $("oo_"+l.k).textContent = l.consumivel ? `consumível — comprado, ${o.reuso} reaproveitamentos` : l.obs;
+    $("oq_"+l.k).textContent = fmt(l.qtd, l.un==="m"?1:0);
+    $("oc_"+l.k).textContent = fmt(l.compra, l.un==="m"?1:0);
+    $("tv_"+l.k).textContent = mV ? BRL(l.venda) : "—";
+    $("ta_"+l.k).textContent = mA ? (l.consumivel ? BRL(l.venda)+" *" : BRL(l.aluguel)) : "—";
+  });
+  $("oFoot").innerHTML = `<tr><td colspan="5">Equipamento + consumíveis</td>
+    <td class="num">${mV?BRL(o.eqVenda+o.consum):"—"}</td>
+    <td class="num">${mA?BRL(o.aluguelTotEq+o.consum):"—"}</td></tr>`;
+
+  const lin = (r,v,a,obs) => `<tr><td>${r}</td><td class="num">${mV?BRL(v):"—"}</td>
+    <td class="num">${mA?BRL(a):"—"}</td><td style="text-align:left;font-size:11.5px;color:var(--ink-3)">${obs||""}</td></tr>`;
+  $("oTot").innerHTML =
+    `<tr><th>Item</th><th class="num">Venda</th><th class="num">Aluguel</th><th style="text-align:left">Base</th></tr>` +
+    lin("Equipamento", o.eqVenda, o.aluguelTotEq,
+        mV&&mA?`compra com ${fmt(ORC.reposicao,0)}% de reposição · aluguel ${BRL(o.eqMes)}/mês × ${fmt(o.meses,1)} meses`:"") +
+    lin("Consumíveis", o.consum, o.consum, "placa, sarrafo e cabo são comprados nos dois casos") +
+    lin("Frete", o.frete, o.frete, `${fmt(ORC.viagens,0)} viagens × ${BRL(ORC.frete)}`) +
+    lin("Montagem e desmontagem", o.servico, o.servico,
+        `${BRL(ORC.montagem+ORC.desmontagem)}/m² × ${fmt(o.area,0)} m² × ${fmt(o.nPav,0)} pavimentos`) +
+    (ORC.impostos>0 ? lin(`Impostos e BDI (${fmt(ORC.impostos,0)}%)`,
+        o.totV-o.totV/(1+ORC.impostos/100), o.totA-o.totA/(1+ORC.impostos/100), "") : "") +
+    `<tr><td><b>TOTAL</b></td><td class="num"><b>${mV?BRL(o.totV):"—"}</b></td>
+      <td class="num"><b>${mA?BRL(o.totA):"—"}</b></td>
+      <td style="text-align:left;font-size:11.5px;color:var(--ink-3)">${fmt(o.nPav,0)} pavimentos · ${fmt(o.meses,1)} meses</td></tr>` +
+    `<tr><td>Por m² de laje, por pavimento</td>
+      <td class="num">${mV?BRL(o.totV/(o.area*o.nPav)):"—"}</td>
+      <td class="num">${mA?BRL(o.totA/(o.area*o.nPav)):"—"}</td>
+      <td style="text-align:left;font-size:11.5px;color:var(--ink-3)">${fmt(o.area,0)} m² por pavimento</td></tr>`;
+
+  const dif = o.totV - o.totA;
+  $("oEquil").innerHTML = o.eqMes<=0
+    ? `Sem preço de aluguel lançado — preencha a coluna <b>aluguel un./mês</b> para a comparação fazer sentido.`
+    : `<b>Equilíbrio em ${fmt(o.pavEq,1)} pavimentos</b> (${fmt(o.mesesEq,1)} meses de locação).
+       Acima disso o aluguel do equipamento passa a custar mais que comprar.
+       Nesta obra, com ${fmt(o.nPav,0)} pavimentos, ${
+       Math.abs(dif) < 0.02*Math.max(o.totV,o.totA)
+         ? "venda e aluguel praticamente empatam."
+         : dif<0 ? `<b>comprar sai ${BRL(-dif)} mais barato</b> que alugar.`
+                 : `<b>alugar sai ${BRL(dif)} mais barato</b> que comprar.`}
+       <br>A conta do equilíbrio olha só o equipamento: consumíveis, frete e mão de obra entram igual nos dois casos.
+       Fora dela ficam o custo do capital imobilizado, a manutenção e o valor residual do equipamento comprado.`;
+
+  $("oResumo").innerHTML = `<b>${fmt(o.jogos,0)} jogo(s) no canteiro × ${fmt(o.nPav,0)} pavimentos a cada
+    ${fmt(ORC.ciclo,0)} dias = ${fmt(o.meses,1)} meses de obra.</b>
+    O plano de desforma da prancha manda manter 1/3 das escoras até a laje de cima liberar 2/3 — por isso dois pavimentos
+    carregam ao mesmo tempo, e o número de jogos não pode ser 1.`;
+  $("cOrc").textContent = ORC.modo==="venda" ? BRL(o.totV) : ORC.modo==="aluguel" ? BRL(o.totA)
+    : `venda ${BRL(o.totV)} · aluguel ${BRL(o.totA)}`;
+}
+
+function paneDesf(L,cfg,nAp){
+  const malha = L.length ? Math.max(...L.map(r=>r.malhaReesc)) : cfg.reMalha;
+  return `<div class="note"><b>Plano de desforma do projeto estrutural.</b> A NBR 15696 põe o prazo de retirada do escoramento e do
+    reescoramento com o projetista da estrutura de concreto. Estas são as notas que a prancha de formas já traz, e prevalecem sobre
+    qualquer estimativa desta calculadora.</div>
+    <div class="scroll"><table><thead><tr><th>Elemento</th><th style="text-align:left">Prazo e procedimento</th></tr></thead>
+    <tbody>${DESFORMA.map(([k,v])=>`<tr><td><b>${k}</b></td><td style="text-align:left;font-size:12.5px">${v}</td></tr>`).join("")}</tbody></table></div>
+    <div class="scroll"><table><thead><tr><th>Reescoramento</th><th class="num">Valor</th><th>Critério</th></tr></thead><tbody>
+      <tr><td>Escoras mantidas aos 15 dias</td><td class="num">${fmt(nAp/3,0)} de ${fmt(nAp,0)}</td><td>1/3 do escoramento, nota 7 da prancha</td></tr>
+      <tr><td>Malha do remanescente</td><td class="num">${fmt(malha,2)} m</td><td>≤ 2,0 × 2,0 m — Anexo C</td></tr>
+      <tr><td>Sobrecarga evolutiva</td><td class="num">${fmt(cfg.reSobre,1)} kN/m²</td><td>≥ 1,0 kN/m² — C.4 a)</td></tr>
+      <tr><td>Ciclo de remoção</td><td class="num">≥ 14 dias</td><td>6.5; o projeto adota 15 dias para 2/3 das escoras</td></tr>
+    </tbody></table></div>
+    <div class="note w">O remanescente só sai depois que a laje superior tiver 2/3 das escoras retiradas, então <b>dois pavimentos
+    consecutivos carregam ao mesmo tempo</b>. A capacidade dos pavimentos inferiores nas idades de aplicação das cargas das
+    concretagens posteriores tem de ser verificada pelo projetista da estrutura (C.3 c e d) — está fora do que esta calculadora faz.</div>`;
+}
+function paneCatHtml(cfg){
+  const vert = Object.entries(VERTICAIS).map(([k,d])=>{
+    let cap = d.tab ? d.tab.map(([h,c])=>`${fmt(h,2)} m → ${fmt(c,0)} kgf`).join(" · ")
+            : d.tabTrav ? Object.entries(d.tabTrav).map(([t,c])=>`trav. ${fmt(+t,2)} m → ${fmt(c,0)} kgf/vertical`).join(" · ")
+            : d.secoes ? d.secoes.map(([b,h])=>`${fmt(b,1)}×${fmt(h,1)} cm`).join(" · ") : "";
+    return `<tr><td><b>${d.nome}</b>${k===cfg.vertKey?' <span class="pill ok">em uso</span>':''}
+      <div style="font-size:11px;color:var(--ink-3);text-align:left;margin-top:2px">${d.nota||""}</div></td>
+      <td style="text-align:left;font-family:var(--f-num);font-size:11px">${cap}</td></tr>`;}).join("");
+  const hor = Object.entries(HORIZ).map(([k,d])=>{
+    const cap = d.tipo==="adm" ? `M ${fmt(d.Madm,2)} kN·m · V ${fmt(d.Vadm,1)} kN · EI ${fmt(d.EI,0)} kN·m² · peça ${fmt(d.comp,2)} m`
+                               : `${fmt(d.b,1)}×${fmt(d.h,1)} cm · ${d.cls} · peça ${fmt(d.comp,2)} m`;
+    const uso = k===val("sysViga")||k===val("sysBarrote");
+    return `<tr><td><b>${d.nome}</b>${uso?' <span class="pill ok">em uso</span>':''}</td>
+      <td style="text-align:left;font-family:var(--f-num);font-size:11px">${cap}</td></tr>`;}).join("");
+  return `<div class="sub">Estruturas verticais de apoio</div>
+    <div class="scroll"><table><tbody>${vert}</tbody></table></div>
+    <div class="sub">Longarinas e travessas</div>
+    <div class="scroll"><table><tbody>${hor}</tbody></table></div>
+    <div class="sub">Coeficientes adotados</div>
+    <div class="legend-grid">
+      <div><span class="sw">γ<sub>q</sub> 1,4</span><span>ponderação das ações, ψ = 1,0 (4.3.1) — no modo estados-limites</span></div>
+      <div><span class="sw">γ<sub>m</sub> 1,1</span><span>aço e alumínio (4.3.1.2)</span></div>
+      <div><span class="sw">γ<sub>m</sub> 1,5</span><span>escoras e torres à compressão e flambagem — embutido na carga de utilização</span></div>
+      <div><span class="sw">FS 2,0</span><span>escoras, torres e vigas metálicas sobre o limite de flambagem (A.3)</span></div>
+      <div><span class="sw">FS 2,25</span><span>vigas de madeira industrializada (A.2.1)</span></div>
+      <div><span class="sw">0,41 f<sub>c0k</sub></span><span>flexão e compressão paralela, madeira maciça</span></div>
+      <div><span class="sw">0,51 f<sub>c0k</sub></span><span>idem, madeira industrializada</span></div>
+      <div><span class="sw">0,32 f<sub>vk</sub></span><span>cisalhamento, madeira maciça</span></div>
+      <div><span class="sw">0,40 f<sub>vk</sub></span><span>cisalhamento, madeira industrializada</span></div>
+      <div><span class="sw">0,10 f<sub>c0k</sub></span><span>compressão perpendicular, maciça (25% da paralela)</span></div>
+      <div><span class="sw">k<sub>mod</sub></span><span>0,9 × 0,8 ou 1,0 × 0,8 (4.3.1.1)</span></div>
+      <div><span class="sw">L/${cfg.divFlecha}</span><span>flecha com peso do concreto + 1,0 kN/m² (4.3.2)</span></div>
+    </div>`;
+}
+/* ---- folha de impressão ---- */
+function montarFolha(cfg,L,V,rGov,layout,Vtot,areaTot){
+  const geo = GEO && GEO.mask;
+  const nAp = (geo?layout.escoras.length:L.reduce((s,r)=>s+r.nEsc,0)) + (geo?layout.escVigas.length:V.reduce((s,r)=>s+r.nEsc,0));
+  $("folha").innerHTML = `<h3>${val("projName")||ULT.nome||""} — memorial de escoramento</h3>
+    <div class="bl"><b>GRADE ADOTADA</b>
+longarina ${cfg.viga.nome} a cada ${rGov?fmt(rGov.sViga,2):"—"} m
+barrote ${cfg.barrote.nome} a cada ${rGov?fmt(rGov.sBarrote,2):"—"} m
+apoio ${VERTICAIS[cfg.vertKey].nome} a cada ${rGov?fmt(rGov.sEsc,2):"—"} m
+fôrma ${cfg.forma.nome} · placa ${fmt(cfg.placa.b*100,0)} × ${fmt(cfg.placa.h*100,0)} cm
+pé-direito de escoramento ${fmt(cfg.H,2)} m · pano que dita a grade ${rGov?rGov.el.id:"—"}
+método ${cfg.mode==="elu"?"estados-limites, γq = 1,4":"tensões admissíveis"} · flecha L/${cfg.divFlecha} · aproveitamento máx. ${fmt(cfg.fuMeta*100,0)}%</div>
+    <div class="bl"><b>QUANTIDADES</b>
+área de laje ${fmt(areaTot,0)} m² · ΣV ${fmt(Vtot,0)} kN
+apoios verticais ${fmt(nAp,0)} · placas ${geo?fmt(layout.placas.length,0):"—"}
+barrote ${fmt(geo?layout.barrotes.reduce((s,t)=>s+Math.hypot(t[1][0]-t[0][0],t[1][1]-t[0][1]),0):0,0)} m
+longarina ${fmt(geo?layout.longas.reduce((s,t)=>s+Math.hypot(t[1][0]-t[0][0],t[1][1]-t[0][1]),0):0,0)} m</div>
+    ${L.map(r=>`<div class="bl">${memLaje(r,cfg)}</div>`).join("")}`;
+}
+
+/* ===================================================================
+   ELEMENTOS
+   =================================================================== */
+const TIPOS = {"laje-mac":"Laje maciça","laje-nerv":"Laje nervurada","laje-pre":"Laje treliçada","viga":"Viga","pilar":"Pilar / parede"};
+function renderEls(){
+  // Reescrever a lista enquanto o cursor está nela faz o campo perder o foco
+  // a cada tecla. Quem está digitando já vê o valor que digitou.
+  if(document.activeElement && document.activeElement.closest && document.activeElement.closest("#pEls")) return;
+  $("pEls").innerHTML = `
+    <div class="elhead"><span>Elemento</span><span>Tipo</span><span>Seção / h</span><span>Área ou compr.</span><span></span></div>
+    <div id="elList">${ELS.map((e,i)=>{
+      const sec = e.t.startsWith("laje")
+        ? `<input type="text" data-i="${i}" data-k="ae" value="${e.a}${e.e?` e=${e.e}`:""}" title="espessura em cm, rebaixo opcional: 15 e=-5">`
+        : `<input type="text" data-i="${i}" data-k="bh" value="${e.b}x${e.h}${e.e?` e=${e.e}`:""}" title="b×h em cm">`;
+      return `<div class="elrow">
+        <input type="text" data-i="${i}" data-k="id" value="${e.id}">
+        <select data-i="${i}" data-k="t">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}"${k===e.t?" selected":""}>${v}</option>`).join("")}</select>
+        ${sec}
+        <input type="number" data-i="${i}" data-k="q" value="${e.q}" step="0.5" title="${e.t.startsWith("laje")?"área m²":"comprimento m"}">
+        <button class="del" data-del="${i}" title="remover">×</button></div>`;}).join("") || `<div class="hint">Sem elementos.</div>`}</div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button id="addLaje">+ laje</button><button id="addViga">+ viga</button><button id="addPilar">+ pilar</button></div>
+    <div class="hint">Lajes em m², vigas e pilares em m. Edite o que a leitura da prancha não pegou.</div>`;
+  $("addLaje").onclick = ()=>{ ELS.push({id:"L"+(ELS.filter(e=>e.t.startsWith("laje")).length+1),t:"laje-mac",a:15,q:20,e:0}); render(); };
+  $("addViga").onclick = ()=>{ ELS.push({id:"V"+(ELS.filter(e=>e.t==="viga").length+1),t:"viga",b:14,h:60,q:6,e:0}); render(); };
+  $("addPilar").onclick= ()=>{ ELS.push({id:"P"+(ELS.filter(e=>e.t==="pilar").length+1),t:"pilar",b:25,h:120,q:3.06,e:0}); render(); };
+}
+document.addEventListener("input", ev=>{
+  const t=ev.target; if(!t.dataset || !t.closest("#elList")) return;
+  const i=+t.dataset.i, k=t.dataset.k; if(isNaN(i)||!k) return;
+  const me = t.value.match(/e\s*=\s*([+-]?\d+(?:[.,]\d+)?)/i);
+  if(k==="bh"){ const m=t.value.match(/(\d+(?:[.,]\d+)?)\s*[\/xX]\s*(\d+(?:[.,]\d+)?)/);
+    if(m){ ELS[i].b=parseFloat(m[1].replace(",",".")); ELS[i].h=parseFloat(m[2].replace(",",".")); }
+    ELS[i].e = me?parseFloat(me[1].replace(",",".")):0; }
+  else if(k==="ae"){ const m=t.value.match(/^\s*(\d+(?:[.,]\d+)?)/);
+    if(m) ELS[i].a=parseFloat(m[1].replace(",","."));
+    ELS[i].e = me?parseFloat(me[1].replace(",",".")):0; }
+  else if(k==="id") ELS[i].id=t.value;
+  else if(k==="t"){ ELS[i].t=t.value; if(t.value.startsWith("laje")&&!ELS[i].a) ELS[i].a=15; }
+  else ELS[i][k]=parseFloat(t.value)||0;
+  render();
+});
+document.addEventListener("click", ev=>{
+  const d = ev.target.dataset && ev.target.dataset.del;
+  if(d===undefined || !ev.target.closest("#elList")) return;
+  ELS.splice(+d,1); render();
+});
+
+/* ===================================================================
+   LEITURA DA PRANCHA
+   =================================================================== */
+function lerMarcas(itens){
+  const out=[], usados=new Set();
+  const isLaje = s=>/^L\s?\d+[A-Z]?$/i.test(s), isViga = s=>/^V\s?\d+[A-Z]?$/i.test(s), isPil = s=>/^P\s?F?\s?\d+[A-Z]?$/i.test(s);
+  const hRe=/h\s*=\s*(\d+(?:[.,]\d+)?)/i, eRe=/e\s*=\s*([+-]?\d+(?:[.,]\d+)?)/i;
+  const secRe=/^(\d{1,3}(?:[.,]\d+)?)\s*[\/xX]\s*(\d{1,3}(?:[.,]\d+)?)/;
+  const COL_LAJE=/^(L\s?\d{1,3}[A-Z]?)\s*h\s*=\s*(\d{1,2}(?:[.,]\d+)?)\s*(?:cm)?$/i;
+  const COL_SEC =/^([VP]F?\s?\d{1,2}[A-Z]?)\s*(\d{2}(?:[.,]\d+)?)\s*[\/xX]\s*(\d{2,3}(?:[.,]\d+)?)/;
+  const COL_SEC2=/^([VP]F?\s?\d{1,3}[A-Z]?)\s+(\d{1,3}(?:[.,]\d+)?)\s*[\/xX]\s*(\d{1,3}(?:[.,]\d+)?)/i;
+  itens.forEach((it,idx)=>{
+    const s=it.s.trim(); let m;
+    if((m=s.match(COL_LAJE))){ out.push({id:m[1].replace(/\s+/g,"").toUpperCase(),t:"laje-mac",
+      a:parseFloat(m[2].replace(",",".")),e:0,q:0}); usados.add(idx); return; }
+    if((m=s.match(COL_SEC)||s.match(COL_SEC2))){
+      const id=m[1].replace(/\s+/g,"").toUpperCase(), me=s.match(eRe);
+      out.push({id,t:/^V/i.test(id)?"viga":"pilar",b:parseFloat(m[2].replace(",",".")),h:parseFloat(m[3].replace(",",".")),
+        e:me?parseFloat(me[1].replace(",",".")):0, q:/^V/i.test(id)?0:3.06}); usados.add(idx); }
+  });
+  const near=(it,test)=>{ let best=null,bd=Infinity;
+    itens.forEach((o,j)=>{ if(o===it||usados.has(j)||!test(o.s.trim())) return;
+      const d = (it.x!=null&&o.x!=null) ? Math.hypot(it.x-o.x,it.y-o.y) : Math.abs(itens.indexOf(it)-j)*0.5;
+      if(d<bd){bd=d;best={o,j,d};} });
+    return best && bd < (it.x!=null?2.0:4) ? best : null; };
+  itens.forEach((it,idx)=>{
+    if(usados.has(idx)) return;
+    const s=it.s.trim();
+    if(isLaje(s)){
+      const n=near(it,v=>hRe.test(v));
+      if(n){ const ne=near(it,v=>eRe.test(v)&&!hRe.test(v)&&!secRe.test(v));
+        out.push({id:s.replace(/\s+/g,"").toUpperCase(),t:"laje-mac",
+          a:parseFloat(n.o.s.match(hRe)[1].replace(",",".")),
+          e:ne?parseFloat(ne.o.s.match(eRe)[1].replace(",",".")):0,q:0});
+        usados.add(idx); usados.add(n.j); if(ne) usados.add(ne.j); }
+    } else if(isViga(s)||isPil(s)){
+      const n=near(it,v=>secRe.test(v));
+      if(n){ const m=n.o.s.match(secRe), me=n.o.s.match(eRe);
+        out.push({id:s.replace(/\s+/g,"").toUpperCase(),t:isViga(s)?"viga":"pilar",
+          b:parseFloat(m[1].replace(",",".")),h:parseFloat(m[2].replace(",",".")),
+          e:me?parseFloat(me[1].replace(",",".")):0,q:isViga(s)?0:3.06});
+        usados.add(idx); usados.add(n.j); }
+    }
+  });
+  const todo = itens.map(i=>i.s).join(" ");
+  if(/CUBETA|ATEX|NERVURAD/i.test(todo)){
+    const hmax = Math.max(0,...out.filter(e=>e.t==="laje-mac").map(e=>e.a));
+    if(hmax>=20) out.forEach(e=>{ if(e.t==="laje-mac" && e.a>=hmax) e.t="laje-nerv"; });
+  } else if(/VIGUETA|VIGOTA|TRELIC/i.test(todo)){
+    out.forEach(e=>{ if(e.t==="laje-mac") e.t="laje-pre"; });
+  }
+  const mp=new Map(); out.forEach(e=>{ if(!mp.has(e.id)) mp.set(e.id,e); });
+  return [...mp.values()].sort((a,b)=>{
+    const o={"laje-mac":0,"laje-nerv":0,"laje-pre":0,"viga":1,"pilar":2};
+    if(o[a.t]!==o[b.t]) return o[a.t]-o[b.t];
+    return (parseInt(a.id.replace(/\D+/g,""))||0)-(parseInt(b.id.replace(/\D+/g,""))||0);
+  });
+}
+// Corte esquemático: três colunas em x fixo — cota, número da linha, nome.
+// A cota fica meia linha acima do nome, então o vizinho mais próximo é sempre o
+// número da linha. Pareia por coluna e por ordem vertical.
+function lerNiveis(itens){
+  const nums = itens.filter(i=>/^-?\d{1,5}$/.test(i.s) && i.x!=null);
+  let noms = itens.filter(i=>/^(FUNDA|T[ÉE]RREO|PAV|SUBSOLO|COB|FUNDO|TOPO|MEZAN|LAZER|GARAG)/i.test(i.s) && i.x!=null);
+  if(noms.length<3) return null;
+  const cont = {}; noms.forEach(t=>{ const k=Math.round(t.x); cont[k]=(cont[k]||0)+1; });
+  const cx = +Object.entries(cont).sort((a,b)=>b[1]-a[1])[0][0];
+  noms = noms.filter(t=>Math.abs(t.x-cx)<1.5);
+  const cols = {};
+  nums.forEach(q=>{ const k=Math.round(q.x); (cols[k]=cols[k]||[]).push(q); });
+  let alvo = null;
+  Object.entries(cols).sort((a,b)=>b[1].length-a[1].length).some(([x,lst])=>{
+    if(Math.abs(+x-cx)<1.5 || lst.length!==noms.length) return false;
+    if(Math.max(...lst.map(q=>Math.abs(parseFloat(q.s)))) < 100) return false;
+    alvo = lst; return true;
+  });
+  if(!alvo) return null;
+  noms.sort((a,b)=>a.y-b.y); alvo.sort((a,b)=>a.y-b.y);
+  const u = noms.map((n,i)=>[n.s.toUpperCase(), parseFloat(alvo[i].s)]);
+  const ok = u.every((p,i)=>i===0||u[i-1][1]<p[1]) && (u[u.length-1][1]-u[0][1])>200;
+  return ok ? u : null;
+}
+// Prancha pré-extraída servida junto com o app: a geometria já vem filtrada,
+// só as camadas que o desenho usa. Precisa de http — em file:// o fetch é bloqueado.
+async function carregarPrancha(slug){
+  const r = await fetch(`pranchas/${slug}.json`, {cache:"no-cache"});
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json();
+  const LY = d.layers || [];
+  const bruto = {
+    lines:(d.lines||[]).map(v=>({lay:LY[v[0]]||"", a:[v[1],v[2]], b:[v[3],v[4]]})),
+    polys:(d.polys||[]).map(v=>{ const pts=[]; for(let k=2;k<v.length;k+=2) pts.push([v[k],v[k+1]]);
+      return {lay:LY[v[0]]||"", closed:!!v[1], pts}; }),
+    arcs:(d.arcs||[]).map(v=>({lay:LY[v[0]]||"", c:[v[1],v[2]], r:v[3], a0:v[4], a1:v[5]})),
+    circles:(d.circles||[]).map(v=>({lay:LY[v[0]]||"", c:[v[1],v[2]], r:v[3]})),
+    txts:(d.txts||[]).map(v=>({lay:LY[v[0]]||"", s:v[1], x:v[2], y:v[3]})),
+    compVigas:d.compVigas||0
+  };
+  if(d.niveis && d.niveis.length>=3){ NIVEIS = d.niveis; fillNiveis(); }
+  ULT.geoBruto = bruto;
+  return prepararGeo(bruto, ELS);
+}
+
+async function lerPDF(buf){
+  if(typeof pdfjsLib==="undefined") throw new Error("pdf.js indisponível");
+  const doc = await pdfjsLib.getDocument({data:buf}).promise, itens=[];
+  for(let p=1;p<=doc.numPages;p++){
+    const tc = await (await doc.getPage(p)).getTextContent();
+    tc.items.forEach(i=>{ if(i.str && i.str.trim()) itens.push({s:i.str, x:i.transform[4]/100, y:i.transform[5]/100}); });
+  }
+  return itens;
+}
+function aplicar(els,msg){
+  if(!els.length){ if($("parseMsg")) $("parseMsg").innerHTML =
+    `<span style="color:var(--bad)">Nenhuma marca reconhecida. A prancha precisa de textos pesquisáveis, não vetorizados.</span>`; return; }
+  const lajes = els.filter(e=>e.t.startsWith("laje")), areaTot = num("areaTot");
+  if(areaTot>0 && lajes.length && lajes.every(e=>!e.q)){
+    const peso = h => h>=25?3 : h>=20?2 : 1, soma = lajes.reduce((s,e)=>s+peso(e.a),0);
+    lajes.forEach(e=>{ e.q = +(areaTot*peso(e.a)/soma).toFixed(1); });
+  }
+  ELS = els; render();
+  const nV = els.filter(e=>e.t==="viga").length, nP = els.filter(e=>e.t==="pilar").length;
+  if($("parseMsg")) $("parseMsg").innerHTML = `<b>${msg}</b><br>${lajes.length} laje(s), ${nV} viga(s), ${nP} pilar(es).`;
+  ULT.msg = msg;
+}
+async function carregarArquivo(f){
+  ULT.nome = f.name.replace(/\.[^.]+$/,"");
+  try{
+    const nome = f.name.toLowerCase(); let itens, compVigas=0;
+    // projeto novo: o que era da prancha anterior sai
+    NIVEIS = []; DESFORMA = []; CAM.pronta = false; V3.cx = V3.cy = null;
+    $("areaBrutaMan").value = 0; $("perimMan").value = 0;
+    $("pavLaje").value = ""; $("pavApoio").value = "";
+    let mapa = null;
+    if(nome.endsWith(".pdf")){ itens = await lerPDF(await f.arrayBuffer()); GEO = null; ULT.geoBruto = null; }
+    else if(nome.endsWith(".dxf")){
+      const g = lerDXF(await f.text()); itens = g.txts; compVigas = g.compVigas; ULT.geoBruto = g; GEO = null;
+      mapa = mapearCamadas(g);
+    }
+    else { itens = (await f.text()).split(/\r?\n|[;\t]/).map(s=>({s})); GEO = null; ULT.geoBruto = null; }
+
+    const niv = lerNiveis(itens);
+    let m1 = "";
+    if(niv){ NIVEIS = niv; m1 = ` Níveis: ${niv.length} pavimentos, de ${fmt(niv[0][1],0)} a ${fmt(niv[niv.length-1][1],0)} cm.`; }
+    else m1 = " Sem tabela de níveis na prancha — informe os níveis à mão na configuração.";
+    fillNiveis();
+    if(mapa){
+      ULT.layInfo = `<b>${mapa.todas.length} camadas no desenho.</b>
+        Classificadas agora: ${["viga","pilar","abert"].map(k=>`${k} ${mapa.achados[k].length}`).join(", ")}.
+        ${mapa.semUso.length ? `Não usadas: ${mapa.semUso.slice(0,12).join(", ")}${mapa.semUso.length>12?"…":""}.` : ""}
+        Confira a classificação antes de confiar no desenho.`;
+      mostrarCamadas();
+    }
+    const els = lerMarcas(itens);
+    // a geometria depende das seções lidas: elas dão a escala e a largura de viga
+    if(ULT.geoBruto) GEO = prepararGeo(ULT.geoBruto, els);
+    let m2 = "";
+    const cv = GEO ? GEO.compVigas : compVigas;
+    if(cv>1 && els.some(e=>e.t==="viga")){
+      const nv = els.filter(e=>e.t==="viga").length;
+      els.forEach(e=>{ if(e.t==="viga") e.q = +(cv/nv).toFixed(1); });
+      $("compVigasTot").value = Math.round(cv);
+      m2 = ` Vigas: ${fmt(cv,0)} m pela geometria.`;
+    }
+    let m3 = "";
+    if(GEO && GEO.mask){
+      $("areaTot").value = Math.round(GEO.mask.area);
+      m3 = ` Escala ${GEO.escala.via}. Pavimento: ${fmt(GEO.mask.area,0)} m² pela máscara, ${GEO.eixos.length} eixos de viga.`;
+    } else if(nome.endsWith(".dxf")) m3 = " Sem marcas de laje suficientes para delimitar o pavimento — o desenho não foi gerado.";
+    mostrarDesforma();
+    enquadrar();
+    aplicar(els, `${f.name} lido.${m1}${m2}${m3}`);
+  }catch(err){
+    if($("parseMsg")) $("parseMsg").innerHTML = `<span style="color:var(--bad)">Não foi possível ler: ${err.message}</span>`;
+  }
+}
+
+/* ===================================================================
+   FIAÇÃO
+   =================================================================== */
+$("pCfg").appendChild($("tplCfg").content.cloneNode(true));
+const fill = (sel,obj,def)=>{ $(sel).innerHTML = Object.entries(obj)
+  .map(([k,d])=>`<option value="${k}"${k===def?" selected":""}>${d.nome}</option>`).join(""); };
+fill("sysVert",VERTICAIS,"escora-320");
+fill("sysViga",HORIZ,"viga-230");
+fill("sysBarrote",HORIZ,"barrote-h8");
+fill("sysForma",FORMAS,"comp-18");
+fill("sysBase",BASES,"sapata-30");
+fill("cubeta",CUBETAS,"atex-800");
+// nome do projeto vive escondido, só para o carimbo
+const hid = document.createElement("input"); hid.type="hidden"; hid.id="projName"; document.body.appendChild(hid);
+
+function fillNiveis(){
+  const op = NIVEIS.map(([k,v])=>`<option value="${v}">${k} — ${fmt(v/100,2)} m</option>`).join("");
+  ["pavLaje","pavApoio"].forEach(id=>{ const cur=$(id).value; $(id).innerHTML=`<option value="">(manual)</option>`+op;
+    if(cur) $(id).value=cur; });
+}
+function fillLajeGov(lajes){
+  const sel = $("lajeGov"), cur = sel.value;
+  const op = lajes.slice().sort((a,b)=>(a.sViga*a.sEsc)-(b.sViga*b.sEsc))
+    .map(r=>`<option value="${r.el.id}">${r.el.id} — ${TIPO[r.el.t]} h=${r.el.a} · ${fmt(r.sViga,2)}×${fmt(r.sEsc,2)} m</option>`).join("");
+  if(sel.dataset.sig !== op){ sel.dataset.sig = op; sel.innerHTML = op; if(cur && op.includes(`"${cur}"`)) sel.value = cur; }
+}
+function syncCubeta(){
+  const c = CUBETAS[val("cubeta")], man = val("cubeta")==="manual";
+  $("cubLado").disabled = man; $("cubMod").disabled = man;
+  if(!man && c.lado){ $("cubLado").value=c.lado; $("cubMod").value=c.modulo; }
+}
+function syncVertHint(){ const d=VERTICAIS[val("sysVert")]; $("travamento").disabled = !(d.fam==="torre"||d.fam==="madeira"); }
+async function loadPreset(k){
+  const p = PRESETS[k];
+  ELS = JSON.parse(JSON.stringify(p.els));
+  ULT.nome = p.nome; $("projName").value = p.nome;
+  GEO = null; CAM.pronta = false; V3.cx = V3.cy = null;
+  Object.keys(PADRAO_CAMADAS).forEach(c=>CAMADAS[c]=PADRAO_CAMADAS[c].slice());
+  recompilarCamadas();
+  DESFORMA = p.geo ? DESFORMA_HRD.map(q=>q.slice()) : [];
+  if(!p.geo) NIVEIS = [];
+  let msgGeo = "";
+  if(p.geo){
+    try{
+      GEO = await carregarPrancha(p.geo);
+      msgGeo = `<br>Planta carregada: ${fmt(GEO.mask.area,0)} m² de laje pela máscara do pavimento,
+        ${GEO.eixos.length} eixos de viga, ${fmt(GEO.compVigas,0)} m de viga pela geometria.`;
+    }catch(err){
+      msgGeo = `<br><span style="color:var(--warn)">A planta não carregou (${err.message}). Isto acontece quando o arquivo é aberto
+        direto do disco: o navegador bloqueia a leitura da pasta <span style="font-family:var(--f-num)">pranchas/</span>.
+        Sirva o app por http (<span style="font-family:var(--f-num)">npx serve</span> na pasta) ou solte o DXF no campo de importar.</span>`;
+    }
+  }
+  if(p.pavLaje){
+    const g = n => (NIVEIS.find(x=>x[0]===n)||[,0])[1];
+    $("pavLaje").value=g(p.pavLaje); $("pavApoio").value=g(p.pavApoio);
+    $("nivLaje").value=(g(p.pavLaje)/100).toFixed(2); $("nivApoio").value=(g(p.pavApoio)/100).toFixed(2);
+  } else { $("pavLaje").value=""; $("pavApoio").value="";
+    $("nivLaje").value=p.nivLaje; $("nivApoio").value=p.nivApoio; }
+  $("areaBrutaMan").value = p.areaBruta || 0;
+  $("perimMan").value = p.perim || 0;
+  const lj=p.els.filter(e=>e.t.startsWith("laje")), vg=p.els.filter(e=>e.t==="viga");
+  if(GEO && GEO.mask){
+    // a área medida na planta reescala o rateio dos panos
+    const alvo = GEO.mask.area, atual = lj.reduce((s,e)=>s+e.q,0);
+    if(atual>0){ const f=alvo/atual; ELS.filter(e=>e.t.startsWith("laje")).forEach(e=>{ e.q=+(e.q*f).toFixed(1); }); }
+    $("areaTot").value = Math.round(alvo);
+    if(GEO.compVigas>1){ const n=vg.length||1;
+      ELS.filter(e=>e.t==="viga").forEach(e=>{ e.q=+(GEO.compVigas/n).toFixed(1); });
+      $("compVigasTot").value = Math.round(GEO.compVigas); }
+  } else {
+    if(lj.length) $("areaTot").value = Math.round(lj.reduce((s,e)=>s+e.q,0));
+    if(vg.length) $("compVigasTot").value = Math.round(vg.reduce((s,e)=>s+e.q,0));
+  }
+  $("lajeGov").dataset.sig = "";
+  mostrarCamadas(); mostrarDesforma(); fillNiveis();
+  enquadrar();
+  render();
+  if($("parseMsg")) $("parseMsg").innerHTML =
+    (p.aviso ? `<span style="color:var(--warn)">${p.aviso}</span>` : "") + msgGeo;
+}
+function syncNivel(){
+  const a=val("pavLaje"), b=val("pavApoio");
+  if(a) $("nivLaje").value=(parseFloat(a)/100).toFixed(2);
+  if(b) $("nivApoio").value=(parseFloat(b)/100).toFixed(2);
+  render();
+}
+$("preset").onchange = e => loadPreset(e.target.value);
+// trocar a escala reprocessa a geometria guardada, sem reler o arquivo
+function reprocessarEscala(){
+  if(!ULT.geoBruto) return;
+  GEO = prepararGeo(ULT.geoBruto, ELS);
+  if(GEO && GEO.mask){
+    const lj = ELS.filter(e=>e.t.startsWith("laje")), atual = lj.reduce((s,e)=>s+e.q,0);
+    if(atual>0){ const f=GEO.mask.area/atual; lj.forEach(e=>{ e.q=+(e.q*f).toFixed(1); }); }
+    $("areaTot").value = Math.round(GEO.mask.area);
+    const vg = ELS.filter(e=>e.t==="viga");
+    if(GEO.compVigas>1 && vg.length){ vg.forEach(e=>{ e.q=+(GEO.compVigas/vg.length).toFixed(1); });
+      $("compVigasTot").value = Math.round(GEO.compVigas); }
+    if($("parseMsg")) $("parseMsg").innerHTML =
+      `Escala ${GEO.escala.via}. Pavimento: <b>${fmt(GEO.mask.area,0)} m²</b>, ${GEO.eixos.length} eixos de viga,
+       ${fmt(GEO.compVigas,0)} m de viga.`;
+  }
+  V3.cx = V3.cy = null;
+  enquadrar(); render();
+}
+// --- camadas
+function mostrarCamadas(extra){
+  $("layViga").value = CAMADAS.viga.join(", ");
+  $("layPilar").value = CAMADAS.pilar.join(", ");
+  $("layAbert").value = CAMADAS.abert.join(", ");
+  $("layIgn").value = CAMADAS.ignora.join(", ");
+  if($("layInfo")) $("layInfo").innerHTML = extra || ULT.layInfo ||
+    `Padrão AltoQi Eberick. Importe um DXF para o app listar as camadas do desenho.`;
+}
+function lerCamadasUI(){
+  const sp = s => s.split(",").map(x=>x.trim()).filter(Boolean);
+  CAMADAS.viga=sp(val("layViga")); CAMADAS.pilar=sp(val("layPilar"));
+  CAMADAS.abert=sp(val("layAbert")); CAMADAS.ignora=sp(val("layIgn"));
+  recompilarCamadas();
+}
+$("layAplicar").onclick = ()=>{ lerCamadasUI(); reprocessarEscala(); };
+$("layPadrao").onclick = ()=>{ Object.keys(PADRAO_CAMADAS).forEach(k=>CAMADAS[k]=PADRAO_CAMADAS[k].slice());
+  recompilarCamadas(); mostrarCamadas("Voltou ao padrão Eberick."); reprocessarEscala(); };
+// --- desforma
+function mostrarDesforma(){ $("desfTxt").value = DESFORMA.map(([k,v])=>`${k}: ${v}`).join("\n"); }
+$("desfTxt").addEventListener("input", ()=>{
+  DESFORMA = val("desfTxt").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+    const i=l.indexOf(":"); return i>0 ? [l.slice(0,i).trim(), l.slice(i+1).trim()] : ["Nota", l]; });
+  render();
+});
+$("escala").onchange = ()=>{ $("escalaFator").disabled = val("escala")!=="custom"; reprocessarEscala(); };
+$("escalaFator").addEventListener("input", ()=>{ if(val("escala")==="custom") reprocessarEscala(); });
+$("pavLaje").onchange = syncNivel; $("pavApoio").onchange = syncNivel;
+$("cubeta").onchange = ()=>{ syncCubeta(); render(); };
+$("sysVert").onchange = ()=>{ syncVertHint(); render(); };
+$("fit").onclick = enquadrar;
+function modo3d(on){
+  V3.modo = on;
+  $("ctrl3d").hidden = !on; $("ctrl2d").hidden = on;
+  $("zoomhint").textContent = on
+    ? "arrastar = girar em torno da planta · roda = aproximar · shift+arrastar = mover o pivô"
+    : "roda = zoom · arrastar = mover · clicar = foco do 3D";
+  if(on && !CAM.pronta) vistaGeral();
+  if(!on) enquadrar();
+  render();
+}
+$("to3d").onclick = ()=>modo3d(true);
+$("to2d").onclick = ()=>modo3d(false);
+$("geral3").onclick = ()=>{ vistaGeral(); render(); };
+$("dentro3").onclick = ()=>{ entrarNoModelo(); render(); };
+$("fov3").addEventListener("input", ()=>{ CAM.fov = +val("fov3"); render(); });
+$("rec3").addEventListener("input", ()=>{ V3.recorte = Math.max(4, num("rec3")); render(); });
+["v3Laje","v3Viga","v3Pil","v3Placa","v3Barr","v3Long","v3Esc"].forEach(id=>
+  $(id).addEventListener("change", render));
+$("file").onchange = e => { if(e.target.files[0]) carregarArquivo(e.target.files[0]); };
+const dz = $("dz");
+["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("hot");}));
+["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("hot");}));
+dz.addEventListener("drop", e=>{ const f=e.dataTransfer.files[0]; if(f) carregarArquivo(f); });
+$("parseBtn").onclick = ()=> aplicar(lerMarcas(val("paste").split(/\r?\n|[;\t]/).map(s=>({s})).filter(i=>i.s.trim())), "Texto lido");
+$("clearBtn").onclick = ()=>{ ELS=[]; render(); };
+$("areaTot").addEventListener("input", ()=>{
+  const lj = ELS.filter(e=>e.t.startsWith("laje")); if(!lj.length) return;
+  const atual = lj.reduce((s,e)=>s+e.q,0), novo = num("areaTot");
+  if(novo>0 && atual>0){ const f=novo/atual; lj.forEach(e=>{ e.q=+(e.q*f).toFixed(1); }); render(); }
+});
+$("compVigasTot").addEventListener("input", ()=>{
+  const vg = ELS.filter(e=>e.t==="viga"); if(!vg.length) return;
+  const novo = num("compVigasTot");
+  if(novo>0){ vg.forEach(e=>{ e.q=+(novo/vg.length).toFixed(1); }); render(); }
+});
+document.querySelectorAll("input,select").forEach(el=>{
+  if(["file","preset","cubeta","sysVert","pavLaje","pavApoio","areaTot","compVigasTot"].includes(el.id)) return;
+  if(el.closest("#elList")) return;
+  const f = /^v(Plan|Marc|Placa|Barr|Long|Esc|VigaEsc)$/.test(el.id) ? aplicarZoom : render;
+  el.addEventListener("input", f); el.addEventListener("change", f);
+});
+$("themeBtn").onclick = ()=>{
+  const r = document.documentElement;
+  const dark = r.getAttribute("data-theme")==="dark" ||
+    (!r.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+  r.setAttribute("data-theme", dark?"light":"dark");
+  try{ localStorage.setItem("esc-theme", dark?"light":"dark"); }catch(_){}
+  aplicarZoom();
+};
+try{ const t=localStorage.getItem("esc-theme"); if(t) document.documentElement.setAttribute("data-theme",t); }catch(_){}
+
+// zoom e pan
+const vp = $("vp");
+vp.addEventListener("wheel", e=>{
+  e.preventDefault();
+  if(V3.modo){               // a roda aproxima e afasta do pivô
+    CAM.dist = Math.max(0.35, Math.min(diagPlano()*3, CAM.dist * (e.deltaY<0 ? 1/1.18 : 1.18)));
+    desenhar3D(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov);
+    return;
+  }
+  const r = vp.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
+  const f = e.deltaY<0 ? 1.15 : 1/1.15, k2 = Math.min(Math.max(view.k*f, 0.4), 60);
+  const sv = $("svg").viewBox.baseVal, sc = Math.min(r.width/(sv.width||1), r.height/(sv.height||1));
+  const ox = (r.width - sv.width*sc)/2, oy = (r.height - sv.height*sc)/2;
+  const ux = (mx-ox)/sc, uy = (my-oy)/sc;
+  view.tx = ux - (ux-view.tx)*(k2/view.k);
+  view.ty = uy - (uy-view.ty)*(k2/view.k);
+  view.k = k2; aplicarZoom();
+}, {passive:false});
+let drag = null;
+vp.addEventListener("pointerdown", e=>{
+  drag={x:e.clientX, y:e.clientY, tx:view.tx, ty:view.ty, mov:0,
+        yaw:CAM.yaw, pitch:CAM.pitch, ax:CAM.tx, ay:CAM.ty, az:CAM.tz,
+        girar: V3.modo && !e.shiftKey, mover: V3.modo && e.shiftKey};
+  vp.classList.add("drag"); vp.setPointerCapture(e.pointerId); });
+// clique seco na planta escolhe o trecho que o 3D vai mostrar
+vp.addEventListener("click", e=>{
+  if(V3.modo || !GEO || !GEO.bb || (drag && drag.mov>4)) return;
+  const r = vp.getBoundingClientRect(), sv = $("svg").viewBox.baseVal;
+  const sc = Math.min(r.width/(sv.width||1), r.height/(sv.height||1));
+  const ox = (r.width - sv.width*sc)/2, oy = (r.height - sv.height*sc)/2;
+  const ux = (e.clientX-r.left-ox)/sc, uy = (e.clientY-r.top-oy)/sc;
+  V3.cx = GEO.bb.x0 + (ux - view.tx)/view.k;
+  V3.cy = GEO.bb.y1 - (uy - view.ty)/view.k;
+  CAM.tx = V3.cx; CAM.ty = V3.cy;    // o ponto clicado vira o eixo da órbita
+  render();
+});
+vp.addEventListener("pointermove", e=>{
+  if(!drag) return;
+  drag.mov = Math.max(drag.mov||0, Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y));
+  if(drag.girar){            // orbita em torno do pivô, no sentido do arrasto
+    CAM.yaw = drag.yaw + (e.clientX-drag.x)*0.006;
+    CAM.pitch = Math.max(-1.45, Math.min(1.45, drag.pitch - (e.clientY-drag.y)*0.005));
+    desenhar3D(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov);
+    return;
+  }
+  if(drag.mover){            // arrasta o pivô pelo plano da tela
+    const b = baseCam(), s = CAM.dist*0.0016;
+    const dx = -(e.clientX-drag.x)*s, dy = (e.clientY-drag.y)*s;
+    CAM.tx = drag.ax + b.r[0]*dx + b.u[0]*dy;
+    CAM.ty = drag.ay + b.r[1]*dx + b.u[1]*dy;
+    CAM.tz = drag.az + b.u[2]*dy;
+    desenhar3D(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov);
+    return;
+  }
+  const r = vp.getBoundingClientRect(), sv = $("svg").viewBox.baseVal;
+  const sc = Math.min(r.width/(sv.width||1), r.height/(sv.height||1));
+  view.tx = drag.tx + (e.clientX-drag.x)/sc; view.ty = drag.ty + (e.clientY-drag.y)/sc;
+  aplicarZoom();
+});
+["pointerup","pointercancel"].forEach(t=>vp.addEventListener(t, ()=>{ drag=null; vp.classList.remove("drag"); }));
+
+// exportação: a caixa de impressão só existe fora do frame do artefato
+const solto = (()=>{ try{ return window.self===window.top; }catch(_){ return false; } })();
+if(solto){
+  $("expBtn").innerHTML = `<button class="primary" id="pdf">exportar PDF</button>`;
+  $("pdf").onclick = ()=>{ const ab=[...document.querySelectorAll("details.gav")].map(d=>d.open);
+    window.print(); ab.forEach((o,i)=>document.querySelectorAll("details.gav")[i].open=o); };
+}
+
+$("pCfg").insertAdjacentHTML("beforeend", `<div class="sub">Catálogo</div><div id="catBox"></div>`);
+montarOrcamentoUI();
+fillNiveis(); syncCubeta(); syncVertHint();
+(async ()=>{
+  await loadPreset("hrd207");
+  $("catBox").innerHTML = paneCatHtml(cfgAtual());
+})();
+</script>
+
+</body>
+</html>
