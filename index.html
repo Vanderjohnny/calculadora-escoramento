@@ -243,6 +243,7 @@ footer.sheet b{color:var(--ink-2)}
         <label class="chk"><input type="checkbox" id="vPlan" checked> planta</label>
         <label class="chk"><input type="checkbox" id="vMarc"> marcas</label>
         <label class="chk"><input type="checkbox" id="vPlaca" checked> placas</label>
+        <label class="chk"><input type="checkbox" id="vNumPlaca"> n° das placas</label>
         <label class="chk"><input type="checkbox" id="vBarr" checked> barrotes</label>
         <label class="chk"><input type="checkbox" id="vLong" checked> longarinas</label>
         <label class="chk"><input type="checkbox" id="vEsc" checked> escoras</label>
@@ -282,6 +283,7 @@ footer.sheet b{color:var(--ink-2)}
   <details class="gav"><summary>Fôrmas verticais — Anexo D <span class="c" id="cVert"></span></summary><div class="gav-body" id="pVert"></div></details>
   <details class="gav"><summary>Estabilidade horizontal <span class="c" id="cEstab"></span></summary><div class="gav-body" id="pEstab"></div></details>
   <details class="gav"><summary>Quantitativo <span class="c" id="cQuant"></span></summary><div class="gav-body" id="pQuant"></div></details>
+  <details class="gav"><summary>Aproveitamento das chapas <span class="c" id="cCorte"></span></summary><div class="gav-body" id="pCorte"></div></details>
   <details class="gav"><summary>Orçamento — venda ou aluguel <span class="c" id="cOrc"></span></summary><div class="gav-body" id="pOrc"></div></details>
   <details class="gav"><summary>Desforma e reescoramento <span class="c"></span></summary><div class="gav-body" id="pDesf"></div></details>
   <details class="gav"><summary>Memória de cálculo <span class="c">texto corrido</span></summary><div class="gav-body"><div class="mem" id="pMem"></div></div></details>
@@ -370,6 +372,10 @@ footer.sheet b{color:var(--ink-2)}
     <div class="f"><label for="compVigasTot">Compr. de vigas <span class="u">(m)</span></label><input type="number" id="compVigasTot" value="350" step="5"></div>
     <div class="f"><label for="reusoComp">Reaproveitamentos da placa</label><input type="number" id="reusoComp" value="10" step="1"></div>
   </div>
+  <div class="f"><label class="chk" style="font-size:12px"><input type="checkbox" id="girarChapa"> girar peças 90° no plano de corte</label>
+    <div class="hint">Girar aumenta o aproveitamento, mas troca a direção das fibras: a face do compensado deve vazar
+    transversalmente aos barrotes, e girada a chapa perde capacidade à flexão. Ligue só para peças que não trabalham,
+    como tampões e fechamentos.</div></div>
   <div class="grid3">
     <div class="f"><label for="vConc">Velocidade concretagem <span class="u">(m/h)</span></label><input type="number" id="vConc" value="2.0" step="0.5"></div>
     <div class="f"><label for="consist">Consistência</label>
@@ -761,7 +767,7 @@ function cfgAtual(){
     cubeta:val("cubeta")||"atex-800", capa:num("capa"), cubLado:num("cubLado"), cubMod:num("cubMod"), hEqMan:num("hEqMan"),
     vConc:num("vConc"), consist:val("consist")||"C3", tempConc:num("tempConc"), pressMod:val("pressMod")||"hidro",
     reSobre:num("reSobre"), reMalha:num("reMalha"), sigSolo:num("sigSolo"), aBase:num("aBase"),
-    distMin:Math.max(0, num("distMin")),
+    distMin:Math.max(0, num("distMin")), girarChapa:chk("girarChapa"),
     placa:{b:(pd?+pd[1]:200)/100, h:(pd?+pd[2]:100)/100},
     dirLong:val("dirLong")||"x", offX:num("offX"), offY:num("offY"),
     areaBrutaMan:num("areaBrutaMan"), perimMan:num("perimMan")
@@ -1127,6 +1133,7 @@ function gerarLayout(cfg, rGov, rVigaGov){
   // placas: lado comprido atravessando os barrotes
   const pl = cfg.placa;
   const pw = horiz ? pl.h : pl.b, ph = horiz ? pl.b : pl.h;
+  out.placaDim = {w:pw, h:ph};      // a chapa do plano de corte é esta mesma
   for(let x=org(bb.x0,pw,cfg.offX); x<bb.x1; x+=pw)
     for(let y=org(bb.y0,ph,cfg.offY); y<bb.y1; y+=ph){
       // conta quantos quartos da placa caem sobre a laje
@@ -1391,6 +1398,83 @@ function desenhar3D(cfg, layout, rGov){
 }
 
 /* ===================================================================
+   APROVEITAMENTO DE CHAPAS
+   Cada posição de placa vira uma peça com a medida real do que fica
+   sobre a laje. As inteiras consomem uma chapa cada; os recortes são
+   encaixados em chapas novas por prateleiras, e viram plano de corte.
+   =================================================================== */
+const PASSO_CORTE = 0.05;                 // peças cotadas em múltiplos de 5 cm
+
+function pecasDePlaca(cfg, layout){
+  if(!GEO || !GEO.mask) return [];
+  const M = GEO.mask, s = PASSO_CORTE;
+  const sobe = v => Math.ceil(v/s - 1e-9)*s;
+  const pecas = [];
+  layout.placas.forEach(p=>{
+    let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+    for(let x=p.x+s/2; x<p.x+p.w; x+=s)
+      for(let y=p.y+s/2; y<p.y+p.h; y+=s)
+        if(M.in(x,y)){
+          if(x-s/2<x0) x0=x-s/2; if(x+s/2>x1) x1=x+s/2;
+          if(y-s/2<y0) y0=y-s/2; if(y+s/2>y1) y1=y+s/2;
+        }
+    if(!isFinite(x0)) return;
+    const w = Math.min(p.w, sobe(x1-x0)), h = Math.min(p.h, sobe(y1-y0));
+    if(w<s || h<s) return;
+    pecas.push({x:x0, y:y0, w, h, cx:p.x, cy:p.y,
+                inteira: w >= p.w-1e-6 && h >= p.h-1e-6});
+  });
+  // numera como se lê a planta: de cima para baixo, da esquerda para a direita
+  pecas.sort((a,b)=> (b.y - a.y) || (a.x - b.x));
+  pecas.forEach((q,i)=>{ q.n = i+1; });
+  return pecas;
+}
+
+// Encaixe por prateleiras (first-fit decreasing height), com corte guilhotinado.
+function planoDeCorte(pecas, LW, LH, girar){
+  const recortes = pecas.filter(q=>!q.inteira)
+    .map(q=>({n:q.n, w:q.w, h:q.h}))
+    .sort((a,b)=> b.h - a.h || b.w - a.w);
+  const chapas = [];
+  const novaChapa = () => { const c = {pecas:[], prateleiras:[], n:chapas.length+1}; chapas.push(c); return c; };
+  const cabe = (p, girado) => girado ? {w:p.h, h:p.w} : {w:p.w, h:p.h};
+
+  recortes.forEach(p=>{
+    const tentativas = girar ? [false, true] : [false];
+    for(const c of chapas){
+      for(const g of tentativas){
+        const d = cabe(p, g);
+        if(d.w > LW + 1e-9 || d.h > LH + 1e-9) continue;
+        // prateleira existente
+        const pr = c.prateleiras.find(r => r.h >= d.h - 1e-9 && LW - r.usado >= d.w - 1e-9);
+        if(pr){ c.pecas.push({n:p.n, x:pr.usado, y:pr.y, w:d.w, h:d.h, girado:g});
+                pr.usado += d.w; return; }
+        // prateleira nova
+        const topo = c.prateleiras.reduce((s,r)=>s+r.h, 0);
+        if(LH - topo >= d.h - 1e-9){
+          c.prateleiras.push({y:topo, h:d.h, usado:d.w});
+          c.pecas.push({n:p.n, x:0, y:topo, w:d.w, h:d.h, girado:g});
+          return;
+        }
+      }
+    }
+    const c = novaChapa();
+    const g = (p.w <= LW && p.h <= LH) ? false : (girar && p.h <= LW && p.w <= LH);
+    const d = cabe(p, g);
+    c.prateleiras.push({y:0, h:d.h, usado:d.w});
+    c.pecas.push({n:p.n, x:0, y:0, w:d.w, h:d.h, girado:g});
+  });
+
+  const inteiras = pecas.filter(q=>q.inteira).length;
+  const areaUtil = pecas.reduce((s,q)=>s+q.w*q.h, 0);
+  const chapasTotal = inteiras + chapas.length;
+  const areaChapas = chapasTotal * LW * LH;
+  return {chapas, inteiras, chapasTotal, areaUtil, areaChapas,
+          aproveitamento: areaChapas ? areaUtil/areaChapas : 0,
+          recortes: recortes.length, LW, LH};
+}
+
+/* ===================================================================
    DESENHO SVG
    =================================================================== */
 const SVGNS = "http://www.w3.org/2000/svg";
@@ -1566,7 +1650,7 @@ function desenhar(cfg, layout){
   if(semGeo){ const sv=$("svg"); while(sv.firstChild) sv.removeChild(sv.firstChild); return; }
   desenharEm($("svg"), cfg, layout, {
     plan:chk("vPlan"), marc:chk("vMarc"), placa:chk("vPlaca"), barr:chk("vBarr"),
-    long:chk("vLong"), esc:chk("vEsc"), vigaEsc:chk("vVigaEsc")
+    long:chk("vLong"), esc:chk("vEsc"), vigaEsc:chk("vVigaEsc"), numPlaca:chk("vNumPlaca")
   }, null, view);
 }
 
@@ -1621,6 +1705,19 @@ function desenharEm(svg, cfg, layout, vis, cota, vw){
       "fill-opacity":p.cheia?0.07:0.03, stroke:"var(--placa)","stroke-width":0.016*esc,
       "stroke-dasharray":p.cheia?"":`${0.09*esc} ${0.07*esc}`});
   });
+  // numeração das placas, para casar com o plano de corte
+  if(vis.numPlaca && ULT.pecas){
+    const gn = document.createElementNS(SVGNS,"g"); g.appendChild(gn);
+    ULT.pecas.forEach(q=>{
+      const e = document.createElementNS(SVGNS,"text");
+      e.setAttribute("transform", `translate(${q.x+q.w/2} ${q.y+q.h/2}) scale(1 -1)`);
+      e.setAttribute("font-size", 0.26*esc); e.setAttribute("font-family","var(--f-num)");
+      e.setAttribute("fill", q.inteira ? "var(--ink-3)" : "var(--bad)");
+      e.setAttribute("text-anchor","middle");
+      e.textContent = q.inteira ? q.n : `${q.n}*`;
+      gn.appendChild(e);
+    });
+  }
   if(vis.barr){
     let d=""; layout.barrotes.forEach(s=>{ d+=`M${s[0][0]} ${s[0][1]}L${s[1][0]} ${s[1][1]}`; });
     if(d) path(d,{stroke:"var(--barr)","stroke-width":0.026*esc,"stroke-opacity":0.75});
@@ -1690,6 +1787,9 @@ function render(){
 
   const layout = gerarLayout(cfg, rGov, rVigaGov);
   ULT.layout = layout; ULT.cfg = cfg; ULT.lajes = lajes; ULT.vigas = vigas; ULT.rGov = rGov;
+  ULT.pecas = pecasDePlaca(cfg, layout);
+  const dimCh = layout.placaDim || {w:cfg.placa.b, h:cfg.placa.h};
+  ULT.plano = planoDeCorte(ULT.pecas, dimCh.w, dimCh.h, cfg.girarChapa);
   desenhar(cfg, layout);
   if(V3.modo && $("n3d")) $("n3d").textContent =
     `${fmt(ULT.n3d||0,0)} faces · ${fmt(CAM.dist,1)} m do pivô · escora ${rGov?fmt(rGov.Hl,2):"—"} m`;
@@ -1734,6 +1834,9 @@ function render(){
   $("cEstab").textContent = `ΣV ${fmt(Vtot,0)} kN`;
   $("pQuant").innerHTML = paneQuant(lajes,vigas,cfg,layout);
   $("cQuant").textContent = `${fmt(GEO&&GEO.mask?nDes:nTab,0)} apoios`;
+  $("pCorte").innerHTML = paneCorte(cfg);
+  $("cCorte").textContent = ULT.plano
+    ? `${ULT.plano.chapasTotal} chapas · ${fmt(ULT.plano.aproveitamento*100,0)}% de aproveitamento` : "";
   atualizarOrcamento(listaMateriais(lajes,vigas,cfg,layout), cfg);
   $("pDesf").innerHTML = paneDesf(lajes,cfg,GEO&&GEO.mask?nDes:nTab);
   $("pMem").innerHTML = lajes.map(r=>memLaje(r,cfg)).join("\n\n") || "Sem lajes.";
@@ -2099,6 +2202,47 @@ function atualizarOrcamento(M,cfg){
     : `venda ${BRL(o.totV)} · aluguel ${BRL(o.totA)}`;
 }
 
+function paneCorte(cfg){
+  const P = ULT.plano, pec = ULT.pecas || [];
+  if(!P || !pec.length) return `<div class="note">Importe uma prancha para o app paginar as chapas.</div>`;
+  // agrupa recortes iguais, que é como se pede na serra
+  const grp = {};
+  pec.filter(q=>!q.inteira).forEach(q=>{
+    const k = `${fmt(q.w*100,0)}×${fmt(q.h*100,0)}`;
+    (grp[k] = grp[k] || {w:q.w, h:q.h, ns:[]}).ns.push(q.n);
+  });
+  const linhas = Object.entries(grp).sort((a,b)=>b[1].ns.length-a[1].ns.length).map(([k,o])=>`<tr>
+    <td><b>${k} cm</b></td><td class="num">${o.ns.length}</td>
+    <td class="num">${fmt(o.w*o.h,2)}</td><td class="num">${fmt(o.w*o.h*o.ns.length,2)}</td>
+    <td style="text-align:left;font-family:var(--f-num);font-size:11px;color:var(--ink-3)">
+      ${o.ns.slice(0,14).join(" ")}${o.ns.length>14?" …":""}</td></tr>`).join("");
+  const perdaM2 = P.areaChapas - P.areaUtil;
+  const semPlano = pec.length;                       // uma chapa por posição, sem encaixe
+  const areaLaje = GEO && GEO.mask ? GEO.mask.area : 0;
+  const cobertura = P.areaChapas ? areaLaje/P.areaChapas : 0;
+  return `<div class="kpis" style="margin-bottom:12px">
+      ${[["Chapas","" + P.chapasTotal, `${P.inteiras} inteiras + ${P.chapas.length} de recorte`],
+         ["Corte aproveitado", fmt(P.aproveitamento*100,1)+"%", `${fmt(P.areaUtil,1)} m² em peças`],
+         ["Cobre a laje", fmt(cobertura*100,1)+"%", `${fmt(areaLaje,0)} m² de laje`],
+         ["Perda na serra", fmt(perdaM2,1), "m² de sobra de chapa"],
+         ["Economia do encaixe", "" + (semPlano-P.chapasTotal), `contra ${semPlano} sem encaixar`]]
+        .map(([k,v,s])=>`<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")}
+    </div>
+    <div class="note w">Os dois percentuais medem coisas diferentes e o primeiro é otimista.
+    <b>Corte aproveitado</b> é quanto da chapa vira peça, e a peça é o retângulo que envolve o pedaço de laje —
+    onde ela contorna pilar ou abertura, parte dela ainda será cortada fora na obra.
+    <b>Cobre a laje</b> compara a área de laje com a área de chapa comprada, e é o número que fecha com o consumo real.</div>
+    <div class="note">Cada posição de placa recebe um número na planta; o asterisco marca as que são recorte.
+    Os recortes são encaixados em chapas novas por prateleiras, com corte guilhotinado — o que a serra circular faz.
+    ${cfg.girarChapa ? "<b>Giro de 90° ligado:</b> confira a direção das fibras nas peças marcadas com ↻."
+                     : "Giro desligado: todas as peças mantêm a direção das fibras da chapa."}</div>
+    <div class="scroll"><table><thead><tr><th>Recorte</th><th class="num">Qtd</th><th class="num">m² cada</th>
+      <th class="num">m² total</th><th style="text-align:left">Placas na planta</th></tr></thead>
+      <tbody>${linhas || `<tr><td colspan="5">Nenhum recorte: todas as placas saem de chapa inteira.</td></tr>`}</tbody></table></div>
+    <div class="note">A peça é o retângulo que cobre o que fica sobre a laje naquela posição, arredondado para cima em
+    múltiplos de 5 cm. Onde a placa contorna pilar ou abertura o recorte final é feito na obra, sobre a peça já cortada.</div>`;
+}
+
 function paneDesf(L,cfg,nAp){
   const malha = L.length ? Math.max(...L.map(r=>r.malhaReesc)) : cfg.reMalha;
   return `<div class="note"><b>Plano de desforma do projeto estrutural.</b> A NBR 15696 põe o prazo de retirada do escoramento e do
@@ -2155,8 +2299,9 @@ function paneCatHtml(cfg){
 const PRANCHAS_PDF = [
   {t:"Prancha geral — conjunto montado", cota:null,
    vis:{plan:1,marc:1,placa:1,barr:1,long:1,esc:1,vigaEsc:1}},
-  {t:"Placas de fôrma — paginação", cota:"placa",
-   vis:{plan:1,marc:1,placa:1}},
+  {t:"Placas de fôrma — paginação e numeração", cota:"placa",
+   vis:{plan:1,marc:1,placa:1,numPlaca:1}},
+  {t:"Plano de corte das chapas", corte:true},
   {t:"Barrotes — eixos e espaçamento", cota:"barrote",
    vis:{plan:1,marc:1,barr:1}},
   {t:"Longarinas — eixos e espaçamento", cota:"longarina",
@@ -2166,6 +2311,54 @@ const PRANCHAS_PDF = [
   {t:"Escoras de viga — locação nos eixos", cota:"escora-viga",
    vis:{plan:1,marc:1,vigaEsc:1}}
 ];
+// Desenha as chapas de recorte lado a lado, cada peça com o número que
+// aparece na planta e a medida do corte.
+function desenharCorte(svg, plano){
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const {chapas, LW, LH} = plano;
+  if(!chapas.length){
+    const t = document.createElementNS(SVGNS,"text");
+    t.setAttribute("x",2); t.setAttribute("y",2); t.setAttribute("font-size",0.6);
+    t.setAttribute("fill","var(--ink-3)"); t.setAttribute("font-family","var(--f-body)");
+    t.textContent = "Nenhum recorte: todas as placas saem de chapa inteira.";
+    svg.setAttribute("viewBox","0 0 40 6"); svg.appendChild(t); return;
+  }
+  const gap = LW*0.14, porLinha = Math.ceil(Math.sqrt(chapas.length*(LH+gap)/(LW+gap)));
+  const cols = Math.max(1, porLinha), linhas = Math.ceil(chapas.length/cols);
+  const W = cols*(LW+gap)+gap, H = linhas*(LH+gap+0.5)+gap;
+  // folga no topo: o título da primeira fileira sobe acima da origem
+  svg.setAttribute("viewBox", `0 -0.45 ${W} ${H+0.45}`);
+  svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+  const el = (t,at,pai)=>{ const e=document.createElementNS(SVGNS,t);
+    for(const k in at) e.setAttribute(k,at[k]); (pai||svg).appendChild(e); return e; };
+  chapas.forEach((c,i)=>{
+    const cx = gap + (i%cols)*(LW+gap), cy = gap + Math.floor(i/cols)*(LH+gap+0.5);
+    // só o número: a medida da chapa já está no cabeçalho, e o texto longo
+    // encavalava de uma chapa na outra
+    el("text",{x:cx, y:cy-0.10, "font-size":Math.min(0.26, LW*0.22), "font-family":"var(--f-num)",
+      fill:"var(--ink-2)"}).textContent = `CHAPA ${c.n}`;
+    el("rect",{x:cx, y:cy, width:LW, height:LH, fill:"none",
+      stroke:"var(--ink-3)","stroke-width":0.025});
+    c.pecas.forEach(p=>{
+      el("rect",{x:cx+p.x, y:cy+p.y, width:p.w, height:p.h, fill:"var(--placa)",
+        "fill-opacity":0.16, stroke:"var(--placa)","stroke-width":0.02});
+      const fs = Math.min(0.26, p.h*0.4, p.w*0.26);
+      el("text",{x:cx+p.x+p.w/2, y:cy+p.y+p.h/2, "font-size":fs, "font-family":"var(--f-num)",
+        fill:"var(--ink-2)", "text-anchor":"middle"}).textContent = p.n;
+      el("text",{x:cx+p.x+p.w/2, y:cy+p.y+p.h/2+fs*1.15, "font-size":fs*0.8,
+        "font-family":"var(--f-num)", fill:"var(--ink-3)", "text-anchor":"middle"})
+        .textContent = `${fmt(p.w*100,0)}×${fmt(p.h*100,0)}${p.girado?" ↻":""}`;
+    });
+    // sobra da chapa
+    const topo = c.prateleiras.reduce((s,r)=>s+r.h,0);
+    if(LH-topo > 0.04) el("rect",{x:cx, y:cy+topo, width:LW, height:LH-topo,
+      fill:"var(--ink-3)","fill-opacity":0.07, stroke:"none"});
+    c.prateleiras.forEach(r=>{ if(LW-r.usado > 0.04)
+      el("rect",{x:cx+r.usado, y:cy+r.y, width:LW-r.usado, height:r.h,
+        fill:"var(--ink-3)","fill-opacity":0.07, stroke:"none"}); });
+  });
+}
+
 function montarPranchasPdf(cfg, layout, rGov){
   const cont = $("pdfPranchas");
   cont.innerHTML = "";
@@ -2178,16 +2371,24 @@ function montarPranchasPdf(cfg, layout, rGov){
     "escora":`${vd.nome} · malha ${fmt(rGov.sViga,2)} × ${fmt(rGov.sEsc,2)} m · ${layout.escoras.length} apoios · cotas em cm`,
     "escora-viga":`${layout.escVigas.length} escoras em ${(GEO.eixos||[]).length} eixos de viga · cota corrida sobre cada eixo`
   };
+  const plano = ULT.plano;
   PRANCHAS_PDF.forEach((p,i)=>{
     const d = document.createElement("div");
     d.className = "pdfPag";
+    const sub = p.corte
+      ? (plano ? `chapa ${fmt(plano.LW*100,0)} × ${fmt(plano.LH*100,0)} cm · ${plano.chapasTotal} ao todo, `
+         + `${plano.inteiras} inteiras e ${plano.chapas.length} de recorte · medidas em cm` : "")
+      : (p.cota ? legenda[p.cota] : "sem cotas");
     d.innerHTML = `<div class="pdfCab"><b>${p.t}</b>
-      <span>${val("projName")||ULT.nome||""} · ${p.cota?legenda[p.cota]:"sem cotas"} · folha ${i+1}/${PRANCHAS_PDF.length}</span></div>
+      <span>${val("projName")||ULT.nome||""} · ${sub} · folha ${i+1}/${PRANCHAS_PDF.length}</span></div>
       <div class="pdfDes"><svg></svg></div>`;
     cont.appendChild(d);
-    desenharEm(d.querySelector("svg"), cfg, layout,
+    const sv = d.querySelector("svg");
+    if(p.corte){ if(plano) desenharCorte(sv, plano); }
+    else desenharEm(sv, cfg, layout,
       {plan:!!p.vis.plan, marc:!!p.vis.marc, placa:!!p.vis.placa, barr:!!p.vis.barr,
-       long:!!p.vis.long, esc:!!p.vis.esc, vigaEsc:!!p.vis.vigaEsc}, p.cota, null);
+       long:!!p.vis.long, esc:!!p.vis.esc, vigaEsc:!!p.vis.vigaEsc, numPlaca:!!p.vis.numPlaca},
+      p.cota, null);
   });
 }
 
@@ -2699,7 +2900,7 @@ $("compVigasTot").addEventListener("input", ()=>{
 document.querySelectorAll("input,select").forEach(el=>{
   if(["file","preset","cubeta","sysVert","pavLaje","pavApoio","areaTot","compVigasTot"].includes(el.id)) return;
   if(el.closest("#elList")) return;
-  const f = /^v(Plan|Marc|Placa|Barr|Long|Esc|VigaEsc)$/.test(el.id) ? aplicarZoom : render;
+  const f = /^v(Plan|Marc|Placa|NumPlaca|Barr|Long|Esc|VigaEsc)$/.test(el.id) ? aplicarZoom : render;
   el.addEventListener("input", f); el.addEventListener("change", f);
 });
 $("themeBtn").onclick = ()=>{
