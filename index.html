@@ -262,7 +262,6 @@ footer.sheet b{color:var(--ink-2)}
       <div class="sep"></div>
       <div class="g">
         <button id="fit">enquadrar</button>
-        <span id="expBtn"></span>
       </div>
     </div>
     <div class="viewport" id="vp">
@@ -2777,7 +2776,8 @@ vp.addEventListener("pointermove", e=>{
 // exportação: a caixa de impressão só existe fora do frame do artefato
 const solto = (()=>{ try{ return window.self===window.top; }catch(_){ return false; } })();
 if(solto){
-  $("expBtn").innerHTML = `<button class="primary" id="pdf">exportar PDF</button>
+  // no cabeçalho, para continuarem à mão também na vista 3D
+  $("expZone").innerHTML = `<button class="primary" id="pdf">exportar PDF</button>
     <button id="dxf">exportar DXF</button>`;
   $("pdf").onclick = ()=>{
     // o jogo de pranchas só existe na hora de imprimir
