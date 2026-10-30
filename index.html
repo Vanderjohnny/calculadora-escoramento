@@ -145,17 +145,23 @@ footer.sheet b{color:var(--ink-2)}
 @media (max-width:620px){.grid2,.grid3{grid-template-columns:1fr}.viewport{height:58vh}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
-/* ---- folha de impressão: prancha em A3 paisagem + memorial ---- */
-#folha{display:none}
+/* ---- folha de impressão: jogo de pranchas A3 paisagem + memorial ---- */
+#folha,#pdfPranchas{display:none}
 @media print{
   @page{size:A3 landscape;margin:8mm}
   body{background:#fff;color:#000;font-size:10px}
-  header.top,.entrada,.ctrl,.legenda,details.gav,footer.sheet,.zoomhint,#naoimp{display:none!important}
+  header.top,.entrada,.ctrl,.legenda,details.gav,.zoomhint,.prancha,.kpis{display:none!important}
   .wrap{max-width:none;padding:0}
-  .kpis{grid-template-columns:repeat(6,1fr);border-color:#000;margin:0 0 4mm}
-  .kpi{background:#fff;padding:2mm}.kpi .v{font-size:13px}
-  .prancha{border:1px solid #000;border-radius:0;margin:0;page-break-after:always}
-  .viewport{height:175mm;min-height:0}
+  #pdfPranchas{display:block}
+  .pdfPag{page-break-after:always;height:192mm;display:flex;flex-direction:column;border:1px solid #000}
+  .pdfCab{display:flex;justify-content:space-between;align-items:baseline;gap:6mm;
+    padding:2mm 3mm;border-bottom:1px solid #000;font-size:11px}
+  .pdfCab b{font-family:var(--f-disp);letter-spacing:.06em;text-transform:uppercase}
+  .pdfCab span{font-family:var(--f-num);font-size:8.5px;color:#444;text-align:right}
+  .pdfDes{flex:1;min-height:0;padding:2mm}
+  .pdfDes svg{width:100%;height:100%;display:block}
+  #pdfPranchas{--plan:#9aa3ad;--plan-2:#5c6673;--pilar:#333;--esc:#b4440c;--longa:#13457a;
+    --barr:#0b5f58;--placa:#6b7480;--ink-2:#111;--ink-3:#555}
   #folha{display:block;font-family:var(--f-num);font-size:9px;line-height:1.5;color:#000;column-count:3;column-gap:8mm}
   #folha h3{font-family:var(--f-disp);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
     margin:0 0 2mm;padding-bottom:1mm;border-bottom:1px solid #000;column-span:all}
@@ -283,6 +289,7 @@ footer.sheet b{color:var(--ink-2)}
   <details class="gav"><summary>Ações, materiais e catálogo <span class="c">configuração</span></summary><div class="gav-body" id="pCfg"></div></details>
   <details class="gav"><summary>Elementos da prancha <span class="c" id="cEls"></span></summary><div class="gav-body" id="pEls"></div></details>
 
+  <div id="pdfPranchas"></div>
   <div id="folha"></div>
 </div>
 
@@ -1330,30 +1337,140 @@ function desenhar3D(cfg, layout, rGov){
 const SVGNS = "http://www.w3.org/2000/svg";
 let view = {k:1, tx:0, ty:0};
 
+/* ===================================================================
+   COTAS — cadeia a partir do eixo de cada elemento
+   =================================================================== */
+// Posições dos eixos de um passo regular dentro de um intervalo.
+function eixosDe(de, ate, passo, off){
+  const org = de + (((off||0) % passo) + passo) % passo;
+  const v = [];
+  for(let t=org; t<=ate+1e-9; t+=passo) v.push(+t.toFixed(4));
+  return v;
+}
+// Mantém só os eixos que cruzam a laje, para não cotar o que não existe.
+function eixosUteis(vals, eixo, bb, M){
+  if(!M) return vals;
+  return vals.filter(v=>{
+    const de = eixo==="x" ? bb.y0 : bb.x0, ate = eixo==="x" ? bb.y1 : bb.x1;
+    for(let t=de; t<=ate; t+=0.4) if(eixo==="x" ? M.in(v,t) : M.in(t,v)) return true;
+    return false;
+  });
+}
+function gerarCotas(tipo, cfg, layout, rGov){
+  if(!GEO || !GEO.bb || !rGov) return [];
+  const bb = GEO.bb, M = GEO.mask, horiz = cfg.dirLong==="x";
+  const sV = rGov.sViga, sE = rGov.sEsc, sB = rGov.sBarrote;
+  const pw = horiz ? cfg.placa.h : cfg.placa.b, ph = horiz ? cfg.placa.b : cfg.placa.h;
+  const cad = [];
+  const chain = (eixo, passo, off, rot) => {
+    const vals = eixosUteis(eixosDe(eixo==="x"?bb.x0:bb.y0, eixo==="x"?bb.x1:bb.y1, passo, off), eixo, bb, M);
+    if(vals.length>1) cad.push({eixo, vals, rot});
+  };
+  if(tipo==="placa"){ chain("x", pw, cfg.offX, "paginação em X"); chain("y", ph, cfg.offY, "paginação em Y"); }
+  else if(tipo==="barrote"){
+    horiz ? chain("x", sB, cfg.offX, "eixos de barrote") : chain("y", sB, cfg.offY, "eixos de barrote");
+  }
+  else if(tipo==="longarina"){
+    horiz ? chain("y", sV, cfg.offY, "eixos de longarina") : chain("x", sV, cfg.offX, "eixos de longarina");
+  }
+  else if(tipo==="escora"){
+    if(horiz){ chain("x", sE, cfg.offX, "escoras ao longo da longarina"); chain("y", sV, cfg.offY, "eixos de longarina"); }
+    else { chain("y", sE, cfg.offY, "escoras ao longo da longarina"); chain("x", sV, cfg.offX, "eixos de longarina"); }
+  }
+  else if(tipo==="escora-viga"){
+    // ao longo de cada eixo de viga, o passo e o total
+    (GEO.eixos||[]).forEach(e=>{
+      const L = Math.hypot(e.b[0]-e.a[0], e.b[1]-e.a[1]);
+      if(L < 1.2) return;
+      const n = Math.max(1, Math.round(L/(ULT.rVigaGov ? ULT.rVigaGov.s : sE)));
+      cad.push({aoLongo:{a:e.a, b:e.b, n, s:L/n, L}});
+    });
+  }
+  return cad;
+}
+function desenharCotas(g, mk, path, cad, esc, cx){
+  if(!cad.length) return;
+  const gc = document.createElementNS(SVGNS,"g"); g.appendChild(gc);
+  const lw = 0.018*esc, tick = 0.09, fs = 0.26*esc;
+  const txt = (x,y,t,ang,anchor) => {
+    const e = document.createElementNS(SVGNS,"text");
+    e.setAttribute("transform", `translate(${x} ${y}) scale(1 -1)${ang?` rotate(${ang})`:""}`);
+    e.setAttribute("font-size", fs); e.setAttribute("font-family","var(--f-num)");
+    e.setAttribute("fill","var(--ink-2)"); e.setAttribute("text-anchor", anchor||"middle");
+    e.textContent = t; gc.appendChild(e); return e;
+  };
+  const linha = d => { const e=document.createElementNS(SVGNS,"path");
+    e.setAttribute("d",d); e.setAttribute("fill","none"); e.setAttribute("stroke","var(--ink-3)");
+    e.setAttribute("stroke-width",lw); gc.appendChild(e); };
+
+  cad.forEach((c,ci)=>{
+    if(c.aoLongo){                         // cota corrida sobre o eixo da viga
+      const {a,b,n,s,L} = c.aoLongo;
+      const ux=(b[0]-a[0])/L, uy=(b[1]-a[1])/L, nx=-uy*0.34, ny=ux*0.34;
+      const A=[a[0]+nx,a[1]+ny], B=[b[0]+nx,b[1]+ny];
+      linha(`M${A[0]} ${A[1]}L${B[0]} ${B[1]}`
+           +`M${a[0]} ${a[1]}L${A[0]} ${A[1]}M${b[0]} ${b[1]}L${B[0]} ${B[1]}`);
+      const mx=(A[0]+B[0])/2, my=(A[1]+B[1])/2;
+      let ang = Math.atan2(uy,ux)*180/Math.PI; if(ang>90||ang<-90) ang+=180;
+      txt(mx, my, `${n} × ${fmt(s,2)} = ${fmt(L,2)}`, -ang);
+      return;
+    }
+    // cadeia fora da planta: X abaixo, Y à esquerda
+    const dist = 0.85 + ci*0.95;
+    if(c.eixo==="x"){
+      const y = cx.y0 + 1.9 - dist;
+      let d = `M${c.vals[0]} ${y}L${c.vals[c.vals.length-1]} ${y}`;
+      c.vals.forEach(v=>{ d += `M${v} ${y-tick}L${v} ${y+tick}`; });
+      linha(d);
+      for(let i=0;i<c.vals.length-1;i++)
+        txt((c.vals[i]+c.vals[i+1])/2, -(y+0.10), fmt((c.vals[i+1]-c.vals[i])*100,0), -90);
+      txt(c.vals[0]-0.45, -(y-0.02), c.rot, 0, "end");
+    } else {
+      const x = cx.x0 + 1.9 - dist;
+      let d = `M${x} ${c.vals[0]}L${x} ${c.vals[c.vals.length-1]}`;
+      c.vals.forEach(v=>{ d += `M${x-tick} ${v}L${x+tick} ${v}`; });
+      linha(d);
+      for(let i=0;i<c.vals.length-1;i++)
+        txt(x-0.10, -((c.vals[i]+c.vals[i+1])/2), fmt((c.vals[i+1]-c.vals[i])*100,0), 0, "end");
+      txt(x, -(c.vals[c.vals.length-1]+0.45), c.rot, 0);
+    }
+  });
+}
+
 function desenhar(cfg, layout){
   if(V3.modo){ desenhar3D(cfg, layout, ULT.rGov); return; }
-  const svg = $("svg");
-  while(svg.firstChild) svg.removeChild(svg.firstChild);
   const semGeo = !GEO || !GEO.bb;
   $("vazio").hidden = !semGeo;
-  if(semGeo) return;
+  if(semGeo){ const sv=$("svg"); while(sv.firstChild) sv.removeChild(sv.firstChild); return; }
+  desenharEm($("svg"), cfg, layout, {
+    plan:chk("vPlan"), marc:chk("vMarc"), placa:chk("vPlaca"), barr:chk("vBarr"),
+    long:chk("vLong"), esc:chk("vEsc"), vigaEsc:chk("vVigaEsc")
+  }, null, view);
+}
 
+// Desenha a planta num SVG qualquer. `vis` liga cada camada, `cota` pede a
+// cotagem de um tipo de elemento, `vw` e o zoom (so a tela usa).
+function desenharEm(svg, cfg, layout, vis, cota, vw){
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  if(!GEO || !GEO.bb) return;
+  const V = vw || {k:1, tx:0, ty:0};
   const bb = GEO.bb;
-  const w = bb.x1-bb.x0, h = bb.y1-bb.y0;
+  // sobra em volta para as cotas caberem
+  const m = cota ? 2.6 : 0;
+  const x0=bb.x0-m, y0=bb.y0-m, w=(bb.x1-bb.x0)+2*m, h=(bb.y1-bb.y0)+2*m;
   svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
   svg.setAttribute("preserveAspectRatio","xMidYMid meet");
   const g = document.createElementNS(SVGNS,"g");
   // DXF tem Y para cima; o SVG tem Y para baixo
-  g.setAttribute("transform", `translate(${view.tx} ${view.ty}) scale(${view.k}) translate(${-bb.x0} ${bb.y1}) scale(1 -1)`);
+  g.setAttribute("transform", `translate(${V.tx} ${V.ty}) scale(${V.k}) translate(${-x0} ${y0+h}) scale(1 -1)`);
   svg.appendChild(g);
-  const esc = 1/view.k;   // espessuras constantes na tela
+  const esc = 1/V.k;
 
-  const mk = (t,at) => { const e=document.createElementNS(SVGNS,t);
-    for(const k in at) e.setAttribute(k, at[k]); g.appendChild(e); return e; };
+  const mk = (t,at,pai) => { const e=document.createElementNS(SVGNS,t);
+    for(const k in at) e.setAttribute(k, at[k]); (pai||g).appendChild(e); return e; };
   const path = (d,at) => mk("path", Object.assign({d, fill:"none"}, at));
 
-  // --- planta importada
-  if(chk("vPlan")){
+  if(vis.plan){
     let dFino="", dViga="", dPilar="";
     GEO.lines.forEach(l=>{
       if(LAY_IGN.test(l.lay)) return;
@@ -1377,41 +1494,35 @@ function desenhar(cfg, layout){
     if(dPilar) path(dPilar,{stroke:"var(--pilar)","stroke-width":0.045*esc, fill:"var(--pilar)","fill-opacity":0.28});
   }
 
-  // --- placas de compensado
-  if(chk("vPlaca")) layout.placas.forEach(p=>{
+  if(vis.placa) layout.placas.forEach(p=>{
     mk("rect",{x:p.x, y:p.y, width:p.w, height:p.h, fill:"var(--placa)",
       "fill-opacity":p.cheia?0.07:0.03, stroke:"var(--placa)","stroke-width":0.016*esc,
       "stroke-dasharray":p.cheia?"":`${0.09*esc} ${0.07*esc}`});
   });
-
-  // --- barrotes
-  if(chk("vBarr")){
+  if(vis.barr){
     let d=""; layout.barrotes.forEach(s=>{ d+=`M${s[0][0]} ${s[0][1]}L${s[1][0]} ${s[1][1]}`; });
     if(d) path(d,{stroke:"var(--barr)","stroke-width":0.026*esc,"stroke-opacity":0.75});
   }
-  // --- longarinas
-  if(chk("vLong")){
+  if(vis.long){
     let d=""; layout.longas.forEach(s=>{ d+=`M${s[0][0]} ${s[0][1]}L${s[1][0]} ${s[1][1]}`; });
     if(d) path(d,{stroke:"var(--longa)","stroke-width":0.055*esc});
   }
-  // --- escoras
   const raio = 0.11;
-  if(chk("vEsc")){
+  if(vis.esc){
     let d=""; layout.escoras.forEach(([x,y])=>{
       d+=`M${x-raio} ${y}A${raio} ${raio} 0 1 1 ${x+raio} ${y}A${raio} ${raio} 0 1 1 ${x-raio} ${y}`
        +`M${x-raio*0.6} ${y}L${x+raio*0.6} ${y}M${x} ${y-raio*0.6}L${x} ${y+raio*0.6}`;
     });
     if(d) path(d,{stroke:"var(--esc)","stroke-width":0.030*esc});
   }
-  if(chk("vVigaEsc")){
+  if(vis.vigaEsc){
     let d=""; layout.escVigas.forEach(([x,y])=>{
       const r=raio*0.85;
       d+=`M${x-r} ${y-r}L${x+r} ${y+r}M${x-r} ${y+r}L${x+r} ${y-r}`;
     });
     if(d) path(d,{stroke:"var(--esc)","stroke-width":0.040*esc});
   }
-  // --- marcas da prancha
-  if(chk("vMarc")){
+  if(vis.marc){
     const gm = document.createElementNS(SVGNS,"g"); g.appendChild(gm);
     GEO.txts.filter(t=>/^[LVP]F?\d+[A-Z]?$/i.test(t.s) && t.x>=bb.x0 && t.x<=bb.x1 && t.y>=bb.y0 && t.y<=bb.y1)
       .forEach(t=>{
@@ -1423,6 +1534,7 @@ function desenhar(cfg, layout){
         e.textContent=t.s; gm.appendChild(e);
       });
   }
+  if(cota) desenharCotas(g, mk, path, gerarCotas(cota, cfg, layout, ULT.rGov), esc, {x0,y0,w,h});
 }
 
 function aplicarZoom(){ desenhar(cfgAtual(), ULT.layout||{placas:[],barrotes:[],longas:[],escoras:[],escVigas:[]}); }
@@ -1500,6 +1612,7 @@ function render(){
   atualizarOrcamento(listaMateriais(lajes,vigas,cfg,layout), cfg);
   $("pDesf").innerHTML = paneDesf(lajes,cfg,GEO&&GEO.mask?nDes:nTab);
   $("pMem").innerHTML = lajes.map(r=>memLaje(r,cfg)).join("\n\n") || "Sem lajes.";
+  ULT.rVigaGov = rVigaGov;
   $("cEls").textContent = `${ELS.length} elementos`;
   renderEls();
   montarFolha(cfg, lajes, vigas, rGov, layout, Vtot, areaTot);
@@ -1912,6 +2025,134 @@ function paneCatHtml(cfg){
       <div><span class="sw">L/${cfg.divFlecha}</span><span>flecha com peso do concreto + 1,0 kN/m² (4.3.2)</span></div>
     </div>`;
 }
+/* ---- jogo de pranchas para o PDF ----
+   Uma geral sem cotas e uma por elemento, cotada, sempre com planta e marcas. */
+const PRANCHAS_PDF = [
+  {t:"Prancha geral — conjunto montado", cota:null,
+   vis:{plan:1,marc:1,placa:1,barr:1,long:1,esc:1,vigaEsc:1}},
+  {t:"Placas de fôrma — paginação", cota:"placa",
+   vis:{plan:1,marc:1,placa:1}},
+  {t:"Barrotes — eixos e espaçamento", cota:"barrote",
+   vis:{plan:1,marc:1,barr:1}},
+  {t:"Longarinas — eixos e espaçamento", cota:"longarina",
+   vis:{plan:1,marc:1,long:1}},
+  {t:"Escoras de laje — locação", cota:"escora",
+   vis:{plan:1,marc:1,long:1,esc:1}},
+  {t:"Escoras de viga — locação nos eixos", cota:"escora-viga",
+   vis:{plan:1,marc:1,vigaEsc:1}}
+];
+function montarPranchasPdf(cfg, layout, rGov){
+  const cont = $("pdfPranchas");
+  cont.innerHTML = "";
+  if(!GEO || !GEO.bb) return;
+  const vd = VERTICAIS[cfg.vertKey];
+  const legenda = {
+    "placa":`Placa ${fmt(cfg.placa.b*100,0)} × ${fmt(cfg.placa.h*100,0)} cm · ${layout.placas.length} peças · cotas em cm`,
+    "barrote":`${cfg.barrote.nome} a cada ${fmt(rGov.sBarrote,2)} m · cotas em cm`,
+    "longarina":`${cfg.viga.nome} a cada ${fmt(rGov.sViga,2)} m · cotas em cm`,
+    "escora":`${vd.nome} · malha ${fmt(rGov.sViga,2)} × ${fmt(rGov.sEsc,2)} m · ${layout.escoras.length} apoios · cotas em cm`,
+    "escora-viga":`${layout.escVigas.length} escoras em ${(GEO.eixos||[]).length} eixos de viga · cota corrida sobre cada eixo`
+  };
+  PRANCHAS_PDF.forEach((p,i)=>{
+    const d = document.createElement("div");
+    d.className = "pdfPag";
+    d.innerHTML = `<div class="pdfCab"><b>${p.t}</b>
+      <span>${val("projName")||ULT.nome||""} · ${p.cota?legenda[p.cota]:"sem cotas"} · folha ${i+1}/${PRANCHAS_PDF.length}</span></div>
+      <div class="pdfDes"><svg></svg></div>`;
+    cont.appendChild(d);
+    desenharEm(d.querySelector("svg"), cfg, layout,
+      {plan:!!p.vis.plan, marc:!!p.vis.marc, placa:!!p.vis.placa, barr:!!p.vis.barr,
+       long:!!p.vis.long, esc:!!p.vis.esc, vigaEsc:!!p.vis.vigaEsc}, p.cota, null);
+  });
+}
+
+/* ===================================================================
+   EXPORTAÇÃO DXF — devolve a grade para o CAD, em metros, no mesmo
+   sistema de coordenadas da planta importada. R12 ASCII, que qualquer
+   programa abre.
+   =================================================================== */
+function gerarDXF(cfg, layout, rGov){
+  const L = [];
+  const p = (c,v) => { L.push(String(c)); L.push(String(v)); };
+  const n = v => (Math.round(v*1e5)/1e5).toFixed(5);
+  const CAMS = [["PLANTA",8],["ESC-PLACAS",9],["ESC-BARROTES",3],["ESC-LONGARINAS",5],
+                ["ESC-ESCORAS",1],["ESC-ESCORAS-VIGA",6],["ESC-MARCAS",7],["ESC-COTAS",2]];
+  const linha = (lay,a,b) => { p(0,"LINE"); p(8,lay); p(10,n(a[0])); p(20,n(a[1])); p(30,"0.0");
+    p(11,n(b[0])); p(21,n(b[1])); p(31,"0.0"); };
+  const circ = (lay,c,r) => { p(0,"CIRCLE"); p(8,lay); p(10,n(c[0])); p(20,n(c[1])); p(30,"0.0"); p(40,n(r)); };
+  const texto = (lay,x,y,h,s,ang) => { p(0,"TEXT"); p(8,lay); p(10,n(x)); p(20,n(y)); p(30,"0.0");
+    p(40,n(h)); p(1,String(s).replace(/\n/g," ")); if(ang) p(50,n(ang)); };
+
+  p(0,"SECTION"); p(2,"HEADER");
+  p(9,"$INSUNITS"); p(70,6);                 // 6 = metros
+  p(9,"$EXTMIN"); p(10,n(GEO.bb.x0)); p(20,n(GEO.bb.y0)); p(30,"0.0");
+  p(9,"$EXTMAX"); p(10,n(GEO.bb.x1)); p(20,n(GEO.bb.y1)); p(30,"0.0");
+  p(0,"ENDSEC");
+  p(0,"SECTION"); p(2,"TABLES"); p(0,"TABLE"); p(2,"LAYER"); p(70,CAMS.length);
+  CAMS.forEach(([nome,cor])=>{ p(0,"LAYER"); p(2,nome); p(70,0); p(62,cor); p(6,"CONTINUOUS"); });
+  p(0,"ENDTAB"); p(0,"ENDSEC");
+  p(0,"SECTION"); p(2,"ENTITIES");
+
+  // planta de referência
+  GEO.lines.forEach(l=>{ if(!LAY_IGN.test(l.lay)) linha("PLANTA", l.a, l.b); });
+  GEO.polys.forEach(q=>{ if(LAY_IGN.test(q.lay)) return;
+    for(let i=0;i<q.pts.length-(q.closed?0:1);i++) linha("PLANTA", q.pts[i], q.pts[(i+1)%q.pts.length]); });
+
+  // placas, como retângulos fechados
+  layout.placas.forEach(q=>{
+    const a=[q.x,q.y], b=[q.x+q.w,q.y], c=[q.x+q.w,q.y+q.h], d=[q.x,q.y+q.h];
+    linha("ESC-PLACAS",a,b); linha("ESC-PLACAS",b,c); linha("ESC-PLACAS",c,d); linha("ESC-PLACAS",d,a);
+  });
+  layout.barrotes.forEach(s=>linha("ESC-BARROTES", s[0], s[1]));
+  layout.longas.forEach(s=>linha("ESC-LONGARINAS", s[0], s[1]));
+  layout.escoras.forEach(([x,y])=>{ circ("ESC-ESCORAS",[x,y],0.11);
+    linha("ESC-ESCORAS",[x-0.07,y],[x+0.07,y]); linha("ESC-ESCORAS",[x,y-0.07],[x,y+0.07]); });
+  layout.escVigas.forEach(([x,y])=>{ const r=0.09;
+    linha("ESC-ESCORAS-VIGA",[x-r,y-r],[x+r,y+r]); linha("ESC-ESCORAS-VIGA",[x-r,y+r],[x+r,y-r]); });
+  GEO.txts.filter(t=>/^[LVP]F?\d+[A-Z]?$/i.test(t.s)).forEach(t=>texto("ESC-MARCAS",t.x,t.y,0.22,t.s));
+
+  // cotas de todos os tipos, cada cadeia na sua posição
+  ["placa","barrote","longarina","escora","escora-viga"].forEach((tipo,k)=>{
+    gerarCotas(tipo, cfg, layout, rGov).forEach((c,ci)=>{
+      if(c.aoLongo){
+        const {a,b,n:qt,s,L:comp} = c.aoLongo;
+        const ux=(b[0]-a[0])/comp, uy=(b[1]-a[1])/comp, nx=-uy*0.34, ny=ux*0.34;
+        const A=[a[0]+nx,a[1]+ny], B=[b[0]+nx,b[1]+ny];
+        linha("ESC-COTAS",A,B);
+        texto("ESC-COTAS",(A[0]+B[0])/2,(A[1]+B[1])/2,0.20,
+              `${qt} x ${fmt(s,2)} = ${fmt(comp,2)}`, Math.atan2(uy,ux)*180/Math.PI);
+        return;
+      }
+      const dist = 0.85 + ci*0.95 + k*2.6;         // cada tipo numa faixa própria
+      const t = 0.09;
+      if(c.eixo==="x"){
+        const y = GEO.bb.y0 - dist;
+        linha("ESC-COTAS",[c.vals[0],y],[c.vals[c.vals.length-1],y]);
+        c.vals.forEach(v=>linha("ESC-COTAS",[v,y-t],[v,y+t]));
+        for(let i=0;i<c.vals.length-1;i++)
+          texto("ESC-COTAS",(c.vals[i]+c.vals[i+1])/2, y+0.10, 0.18, fmt((c.vals[i+1]-c.vals[i])*100,0), 90);
+        texto("ESC-COTAS", c.vals[0]-3.0, y, 0.20, `${tipo} — ${c.rot}`);
+      } else {
+        const x = GEO.bb.x0 - dist;
+        linha("ESC-COTAS",[x,c.vals[0]],[x,c.vals[c.vals.length-1]]);
+        c.vals.forEach(v=>linha("ESC-COTAS",[x-t,v],[x+t,v]));
+        for(let i=0;i<c.vals.length-1;i++)
+          texto("ESC-COTAS", x+0.10, (c.vals[i]+c.vals[i+1])/2, 0.18, fmt((c.vals[i+1]-c.vals[i])*100,0));
+        texto("ESC-COTAS", x, c.vals[c.vals.length-1]+0.45, 0.20, `${tipo} — ${c.rot}`);
+      }
+    });
+  });
+  p(0,"ENDSEC"); p(0,"EOF");
+  return L.join("\r\n") + "\r\n";
+}
+function baixar(nome, texto, tipo){
+  const blob = new Blob([texto], {type: tipo || "application/octet-stream"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = nome; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+
 /* ---- folha de impressão ---- */
 function montarFolha(cfg,L,V,rGov,layout,Vtot,areaTot){
   const geo = GEO && GEO.mask;
@@ -2409,9 +2650,18 @@ vp.addEventListener("pointermove", e=>{
 // exportação: a caixa de impressão só existe fora do frame do artefato
 const solto = (()=>{ try{ return window.self===window.top; }catch(_){ return false; } })();
 if(solto){
-  $("expBtn").innerHTML = `<button class="primary" id="pdf">exportar PDF</button>`;
-  $("pdf").onclick = ()=>{ const ab=[...document.querySelectorAll("details.gav")].map(d=>d.open);
-    window.print(); ab.forEach((o,i)=>document.querySelectorAll("details.gav")[i].open=o); };
+  $("expBtn").innerHTML = `<button class="primary" id="pdf">exportar PDF</button>
+    <button id="dxf">exportar DXF</button>`;
+  $("pdf").onclick = ()=>{
+    // o jogo de pranchas só existe na hora de imprimir
+    montarPranchasPdf(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov);
+    window.print();
+  };
+  $("dxf").onclick = ()=>{
+    if(!GEO || !GEO.bb || !ULT.rGov){ alert("Importe uma prancha antes de exportar o DXF."); return; }
+    const nome = (val("projName")||ULT.nome||"escoramento").replace(/[^\w\-. ]+/g,"").trim();
+    baixar(nome+" - ESCORAMENTO.dxf", gerarDXF(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov), "image/vnd.dxf");
+  };
 }
 
 $("pCfg").insertAdjacentHTML("beforeend", `<div class="sub">Catálogo</div><div id="catBox"></div>`);
