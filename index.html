@@ -216,6 +216,12 @@ footer.sheet b{color:var(--ink-2)}
 
   <!-- ====== PRANCHA DE ESCORAMENTO ====== -->
   <div class="prancha">
+    <div class="ctrl" id="ctrlCorte" hidden>
+      <div class="g">
+        <button id="corteTo2d">← planta 2D</button>
+        <span id="corteInfo" style="font-family:var(--f-num);font-size:11px;color:var(--ink-3)"></span>
+      </div>
+    </div>
     <div class="ctrl" id="ctrl3d" hidden>
       <div class="g">
         <button id="to2d">← planta 2D</button>
@@ -240,6 +246,7 @@ footer.sheet b{color:var(--ink-2)}
     <div class="ctrl" id="ctrl2d">
       <div class="g">
         <button id="to3d" class="primary">ver em 3D →</button>
+        <button id="toCorte">plano de corte</button>
         <label class="chk"><input type="checkbox" id="vPlan" checked> planta</label>
         <label class="chk"><input type="checkbox" id="vMarc"> marcas</label>
         <label class="chk"><input type="checkbox" id="vPlaca" checked> placas</label>
@@ -1278,12 +1285,18 @@ function gerar3D(cfg, layout, rGov){
   if(chk("v3Long")) layout.longas.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zLong,0.15,hLong,"longa","longarina")); });
   if(chk("v3Barr")) layout.barrotes.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zBar,0.08,hBar,"barr","barrote")); });
   // placas
-  if(chk("v3Placa")) layout.placas.forEach(p=>{
-    const x0=Math.max(R.x0,p.x), x1=Math.min(R.x1,p.x+p.w);
-    const y0=Math.max(R.y0,p.y), y1=Math.min(R.y1,p.y+p.h);
-    if(x1-x0<0.05||y1-y0<0.05) return;
-    F.push(...caixa(x0,y0,zPl, x1-x0,y1-y0,hPl, "placa","placa"));
-  });
+  // placas no tamanho real do corte, não na célula da grade
+  if(chk("v3Placa")){
+    const fonte = (ULT.pecas && ULT.pecas.length)
+      ? ULT.pecas.map(q=>({x:q.x, y:q.y, w:q.w, h:q.h, rec:!q.inteira}))
+      : layout.placas.map(p=>({x:p.x, y:p.y, w:p.w, h:p.h, rec:!p.cheia}));
+    fonte.forEach(p=>{
+      const x0=Math.max(R.x0,p.x), x1=Math.min(R.x1,p.x+p.w);
+      const y0=Math.max(R.y0,p.y), y1=Math.min(R.y1,p.y+p.h);
+      if(x1-x0<0.05||y1-y0<0.05) return;
+      F.push(...caixa(x0,y0,zPl, x1-x0,y1-y0,hPl, p.rec?"recorte":"placa","placa"));
+    });
+  }
   // vigas de concreto penduradas na laje
   if(chk("v3Viga")) (GEO.eixos||[]).forEach(e=>{
     const cx=(e.a[0]+e.b[0])/2, cy=(e.a[1]+e.b[1])/2;
@@ -1381,7 +1394,8 @@ function desenhar3D(cfg, layout, rGov){
   // claro no topo, escuro nas laterais — dá volume sem sombra calculada
   const TOM = {topo:1, lado:0.72, "y-":0.78, "y+":0.62, "x+":0.70, "x-":0.58, base:0.45};
   const COR = {esc:"var(--esc)", escv:"var(--esc)", base:"var(--pilar)", longa:"var(--longa)",
-               barr:"var(--barr)", placa:"var(--placa)", viga:"var(--plan-2)", pilar:"var(--pilar)", laje:"var(--plan)"};
+               barr:"var(--barr)", placa:"var(--placa)", recorte:"var(--warn)",
+               viga:"var(--plan-2)", pilar:"var(--pilar)", laje:"var(--plan)"};
   const OP = {laje:0.30, placa:0.85};
   polis.forEach(p=>{
     const e=document.createElementNS(SVGNS,"polygon");
@@ -1644,6 +1658,11 @@ function desenharCotas(g, mk, path, cad, esc, cx, bb){
 }
 
 function desenhar(cfg, layout){
+  if(V3.corte){
+    $("vazio").hidden = !!(GEO && GEO.bb);
+    if(ULT.plano) desenharCorte($("svg"), ULT.plano);
+    return;
+  }
   if(V3.modo){ desenhar3D(cfg, layout, ULT.rGov); return; }
   const semGeo = !GEO || !GEO.bb;
   $("vazio").hidden = !semGeo;
@@ -1700,11 +1719,23 @@ function desenharEm(svg, cfg, layout, vis, cota, vw){
     if(dPilar) path(dPilar,{stroke:"var(--pilar)","stroke-width":0.045*esc, fill:"var(--pilar)","fill-opacity":0.28});
   }
 
-  if(vis.placa) layout.placas.forEach(p=>{
-    mk("rect",{x:p.x, y:p.y, width:p.w, height:p.h, fill:"var(--placa)",
-      "fill-opacity":p.cheia?0.07:0.03, stroke:"var(--placa)","stroke-width":0.016*esc,
-      "stroke-dasharray":p.cheia?"":`${0.09*esc} ${0.07*esc}`});
-  });
+  if(vis.placa){
+    // a célula da grade fica em tracejado; a peça que realmente se corta, cheia
+    layout.placas.forEach(p=>{
+      if(p.cheia) return;
+      mk("rect",{x:p.x, y:p.y, width:p.w, height:p.h, fill:"none",
+        stroke:"var(--placa)","stroke-width":0.012*esc,"stroke-opacity":0.5,
+        "stroke-dasharray":`${0.09*esc} ${0.07*esc}`});
+    });
+    (ULT.pecas||[]).forEach(q=>{
+      mk("rect",{x:q.x, y:q.y, width:q.w, height:q.h, fill:"var(--placa)",
+        "fill-opacity":q.inteira?0.07:0.14, stroke:"var(--placa)","stroke-width":0.016*esc});
+    });
+    if(!(ULT.pecas||[]).length) layout.placas.forEach(p=>{
+      mk("rect",{x:p.x, y:p.y, width:p.w, height:p.h, fill:"var(--placa)",
+        "fill-opacity":0.07, stroke:"var(--placa)","stroke-width":0.016*esc});
+    });
+  }
   // numeração das placas, para casar com o plano de corte
   if(vis.numPlaca && ULT.pecas){
     const gn = document.createElementNS(SVGNS,"g"); g.appendChild(gn);
@@ -2401,8 +2432,9 @@ function gerarDXF(cfg, layout, rGov){
   const L = [];
   const p = (c,v) => { L.push(String(c)); L.push(String(v)); };
   const n = v => (Math.round(v*1e5)/1e5).toFixed(5);
-  const CAMS = [["PLANTA",8],["ESC-PLACAS",9],["ESC-BARROTES",3],["ESC-LONGARINAS",5],
-                ["ESC-ESCORAS",1],["ESC-ESCORAS-VIGA",6],["ESC-MARCAS",7],["ESC-COTAS",2]];
+  const CAMS = [["PLANTA",8],["ESC-PLACAS",9],["ESC-PLACAS-NUM",4],["ESC-BARROTES",3],
+                ["ESC-LONGARINAS",5],["ESC-ESCORAS",1],["ESC-ESCORAS-VIGA",6],["ESC-MARCAS",7],
+                ["ESC-COTAS",2],["CORTE-CHAPAS",8],["CORTE-PECAS",9],["CORTE-TEXTO",4]];
   const linha = (lay,a,b) => { p(0,"LINE"); p(8,lay); p(10,n(a[0])); p(20,n(a[1])); p(30,"0.0");
     p(11,n(b[0])); p(21,n(b[1])); p(31,"0.0"); };
   const circ = (lay,c,r) => { p(0,"CIRCLE"); p(8,lay); p(10,n(c[0])); p(20,n(c[1])); p(30,"0.0"); p(40,n(r)); };
@@ -2424,11 +2456,15 @@ function gerarDXF(cfg, layout, rGov){
   GEO.polys.forEach(q=>{ if(LAY_IGN.test(q.lay)) return;
     for(let i=0;i<q.pts.length-(q.closed?0:1);i++) linha("PLANTA", q.pts[i], q.pts[(i+1)%q.pts.length]); });
 
-  // placas, como retângulos fechados
-  layout.placas.forEach(q=>{
-    const a=[q.x,q.y], b=[q.x+q.w,q.y], c=[q.x+q.w,q.y+q.h], d=[q.x,q.y+q.h];
-    linha("ESC-PLACAS",a,b); linha("ESC-PLACAS",b,c); linha("ESC-PLACAS",c,d); linha("ESC-PLACAS",d,a);
+  // placas no tamanho real do corte, com o número que casa com o plano
+  const ret = (lay,x,y,w,h) => { const a=[x,y],b=[x+w,y],c=[x+w,y+h],d=[x,y+h];
+    linha(lay,a,b); linha(lay,b,c); linha(lay,c,d); linha(lay,d,a); };
+  const pecas = (ULT.pecas && ULT.pecas.length) ? ULT.pecas : null;
+  if(pecas) pecas.forEach(q=>{
+    ret("ESC-PLACAS", q.x, q.y, q.w, q.h);
+    texto("ESC-PLACAS-NUM", q.x+q.w/2-0.12, q.y+q.h/2-0.09, 0.20, q.inteira?`${q.n}`:`${q.n}*`);
   });
+  else layout.placas.forEach(q=>ret("ESC-PLACAS", q.x, q.y, q.w, q.h));
   layout.barrotes.forEach(s=>linha("ESC-BARROTES", s[0], s[1]));
   layout.longas.forEach(s=>linha("ESC-LONGARINAS", s[0], s[1]));
   layout.escoras.forEach(([x,y])=>{ circ("ESC-ESCORAS",[x,y],0.11);
@@ -2468,6 +2504,29 @@ function gerarDXF(cfg, layout, rGov){
       }
     });
   });
+  // plano de corte como bloco à parte, abaixo da planta
+  const P = ULT.plano;
+  if(P && P.chapas.length){
+    const gap = P.LW*0.14;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(P.chapas.length*(P.LH+gap)/(P.LW+gap))));
+    const bx = GEO.bb.x0, by = GEO.bb.y0 - 4;      // topo do bloco, descendo
+    texto("CORTE-TEXTO", bx, by+1.2, 0.45,
+      `PLANO DE CORTE — chapa ${fmt(P.LW*100,0)} x ${fmt(P.LH*100,0)} cm — `
+      +`${P.chapasTotal} chapas, ${P.inteiras} inteiras e ${P.chapas.length} de recorte — medidas em cm`);
+    P.chapas.forEach((c,i)=>{
+      const cx = bx + (i%cols)*(P.LW+gap);
+      const cy = by - (Math.floor(i/cols)+1)*(P.LH+gap+0.5);
+      texto("CORTE-TEXTO", cx, cy+P.LH+0.12, 0.22, `CHAPA ${c.n}`);
+      ret("CORTE-CHAPAS", cx, cy, P.LW, P.LH);
+      c.pecas.forEach(q=>{
+        // o encaixe mede do topo da chapa para baixo
+        const py = cy + P.LH - q.y - q.h;
+        ret("CORTE-PECAS", cx+q.x, py, q.w, q.h);
+        texto("CORTE-TEXTO", cx+q.x+0.06, py+q.h-0.26, 0.18,
+          `${q.n}  ${fmt(q.w*100,0)}x${fmt(q.h*100,0)}${q.girado?" G":""}`);
+      });
+    });
+  }
   p(0,"ENDSEC"); p(0,"EOF");
   return L.join("\r\n") + "\r\n";
 }
@@ -2862,9 +2921,19 @@ $("pavLaje").onchange = syncNivel; $("pavApoio").onchange = syncNivel;
 $("cubeta").onchange = ()=>{ syncCubeta(); render(); };
 $("sysVert").onchange = ()=>{ syncVertHint(); render(); };
 $("fit").onclick = enquadrar;
+function modoCorte(on){
+  V3.corte = on; if(on) V3.modo = false;
+  $("ctrlCorte").hidden = !on;
+  $("ctrl2d").hidden = on; $("ctrl3d").hidden = true;
+  $("zoomhint").textContent = on ? "chapas na ordem do encaixe" : "roda = zoom · arrastar = mover · clicar = foco do 3D";
+  if(on && ULT.plano) $("corteInfo").textContent =
+    `${ULT.plano.chapasTotal} chapas · ${ULT.plano.inteiras} inteiras e ${ULT.plano.chapas.length} de recorte · `
+    + `${fmt(ULT.plano.aproveitamento*100,1)}% do corte aproveitado · medidas em cm`;
+  render();
+}
 function modo3d(on){
-  V3.modo = on;
-  $("ctrl3d").hidden = !on; $("ctrl2d").hidden = on;
+  V3.modo = on; if(on) V3.corte = false;
+  $("ctrl3d").hidden = !on; $("ctrl2d").hidden = on; $("ctrlCorte").hidden = true;
   $("zoomhint").textContent = on
     ? "arrastar = girar em torno da planta · roda = aproximar · shift+arrastar = mover o pivô"
     : "roda = zoom · arrastar = mover · clicar = foco do 3D";
@@ -2874,6 +2943,8 @@ function modo3d(on){
 }
 $("to3d").onclick = ()=>modo3d(true);
 $("to2d").onclick = ()=>modo3d(false);
+$("toCorte").onclick = ()=>modoCorte(true);
+$("corteTo2d").onclick = ()=>modoCorte(false);
 $("geral3").onclick = ()=>{ vistaGeral(); render(); };
 $("dentro3").onclick = ()=>{ entrarNoModelo(); render(); };
 $("fov3").addEventListener("input", ()=>{ CAM.fov = +val("fov3"); render(); });
