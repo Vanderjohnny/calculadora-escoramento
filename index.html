@@ -340,6 +340,12 @@ footer.sheet b{color:var(--ink-2)}
     <div class="f"><label for="flechaDiv">Flecha-limite <span class="u">L/…</span></label><input type="number" id="flechaDiv" value="500" step="50"></div>
     <div class="f"><label for="fuMeta">Aproveitamento máx. <span class="u">(%)</span></label><input type="number" id="fuMeta" value="85" step="5"></div>
   </div>
+  <div class="grid2">
+    <div class="f"><label for="distMin">Distância mínima entre apoios <span class="u">(m)</span></label><input type="number" id="distMin" value="0.25" step="0.05"></div>
+  </div>
+  <div class="hint">Abaixo desta distância dois apoios não cabem lado a lado — a placa de base tem 15 cm. Onde dois eixos de viga
+  se encontram ou se cruzam, os apoios são fundidos num só no centro do grupo, que serve às duas vigas; e um apoio de laje que caia
+  em cima de um de viga é removido, porque a longarina se apoia no forcado do apoio de viga.</div>
   <div class="hint">Sobrecarga ≥ 2,0 kN/m² e carga estática total ≥ 4,0 kN/m² (4.2 e); vento ≥ 0,6 kN/m² (4.2 j);
   horizontal = 5% de ΣV nos dois sentidos (4.2 l); flecha com peso do concreto + 1,0 kN/m², sem coeficiente (4.3.2).
   O aproveitamento máximo é onde o cálculo para quando a carga do apoio é que limita o espaçamento, em vez de encostar em 100%.</div>
@@ -755,6 +761,7 @@ function cfgAtual(){
     cubeta:val("cubeta")||"atex-800", capa:num("capa"), cubLado:num("cubLado"), cubMod:num("cubMod"), hEqMan:num("hEqMan"),
     vConc:num("vConc"), consist:val("consist")||"C3", tempConc:num("tempConc"), pressMod:val("pressMod")||"hidro",
     reSobre:num("reSobre"), reMalha:num("reMalha"), sigSolo:num("sigSolo"), aBase:num("aBase"),
+    distMin:Math.max(0, num("distMin")),
     placa:{b:(pd?+pd[1]:200)/100, h:(pd?+pd[2]:100)/100},
     dirLong:val("dirLong")||"x", offX:num("offX"), offY:num("offY"),
     areaBrutaMan:num("areaBrutaMan"), perimMan:num("perimMan")
@@ -1034,6 +1041,49 @@ function eixosViga(geo, larguras){
 /* ===================================================================
    GERADOR DA GRADE DE ESCORAMENTO
    =================================================================== */
+// Funde apoios próximos demais num só, no centro do grupo. Dois eixos de viga
+// que se encontram colocavam um apoio cada no mesmo ponto; no cruzamento basta
+// um, que serve às duas vigas. A placa de base tem 15 cm, então abaixo da
+// distância mínima os apoios não cabem lado a lado.
+function juntarProximos(pts, dist){
+  if(dist<=0 || pts.length<2) return {pts, fundidos:0};
+  const cel = Math.max(dist, 1e-3), bal = new Map();
+  const ch = (x,y)=>`${Math.floor(x/cel)},${Math.floor(y/cel)}`;
+  const grupo = new Array(pts.length).fill(-1);
+  const grupos = [];
+  pts.forEach((p,i)=>{
+    let alvo = -1;
+    for(let dx=-1;dx<=1 && alvo<0;dx++) for(let dy=-1;dy<=1 && alvo<0;dy++){
+      const b = bal.get(`${Math.floor(p[0]/cel)+dx},${Math.floor(p[1]/cel)+dy}`);
+      if(!b) continue;
+      for(const j of b) if(Math.hypot(pts[j][0]-p[0], pts[j][1]-p[1]) < dist){ alvo = grupo[j]; break; }
+    }
+    if(alvo<0){ alvo = grupos.length; grupos.push([]); }
+    grupo[i] = alvo; grupos[alvo].push(i);
+    const k = ch(p[0],p[1]); if(!bal.has(k)) bal.set(k,[]); bal.get(k).push(i);
+  });
+  const saida = grupos.map(g=>[
+    g.reduce((s,i)=>s+pts[i][0],0)/g.length,
+    g.reduce((s,i)=>s+pts[i][1],0)/g.length]);
+  return {pts:saida, fundidos: pts.length - saida.length};
+}
+// Remove apoios de laje que caem em cima de um apoio de viga: o de viga é o
+// que tem de ficar, e a longarina se apoia nele pelo forcado.
+function afastarDe(pts, outros, dist){
+  if(dist<=0 || !outros.length) return {pts, removidos:0};
+  const cel = Math.max(dist,1e-3), bal = new Map();
+  outros.forEach(p=>{ const k=`${Math.floor(p[0]/cel)},${Math.floor(p[1]/cel)}`;
+    if(!bal.has(k)) bal.set(k,[]); bal.get(k).push(p); });
+  const fica = pts.filter(p=>{
+    for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){
+      const b = bal.get(`${Math.floor(p[0]/cel)+dx},${Math.floor(p[1]/cel)+dy}`);
+      if(b) for(const q of b) if(Math.hypot(q[0]-p[0], q[1]-p[1]) < dist) return false;
+    }
+    return true;
+  });
+  return {pts:fica, removidos: pts.length - fica.length};
+}
+
 function gerarLayout(cfg, rGov, rVigaGov){
   const out = {longas:[], barrotes:[], escoras:[], placas:[], escVigas:[], aviso:null};
   if(!GEO || !GEO.mask || !rGov) return out;
@@ -1094,6 +1144,12 @@ function gerarLayout(cfg, rGov, rVigaGov){
       }
     });
   }
+  // nos cruzamentos e encontros de viga sobravam apoios empilhados
+  const jv = juntarProximos(out.escVigas, cfg.distMin);
+  out.escVigas = jv.pts;
+  const al = afastarDe(out.escoras, out.escVigas, cfg.distMin);
+  out.escoras = al.pts;
+  out.ajuste = {fundidos:jv.fundidos, removidos:al.removidos, dist:cfg.distMin};
   return out;
 }
 
@@ -1596,7 +1652,10 @@ function render(){
     <span><u></u> escora de laje — ${vd.nome}, a cada ${rGov?fmt(rGov.sEsc,2):"—"} m</span>
     <span><b style="color:var(--esc);font-family:var(--f-num);font-size:13px;line-height:1">&times;</b> escora de viga — a cada ${rVigaGov?fmt(rVigaGov.s,2):"—"} m${GEO&&GEO.eixos?`, em ${GEO.eixos.length} eixos`:""}</span>
     <span><s></s> placa ${fmt(cfg.placa.b*100,0)} × ${fmt(cfg.placa.h*100,0)} cm</span>
-    <span><i style="border-color:var(--plan-2)"></i> planta importada</span>`;
+    <span><i style="border-color:var(--plan-2)"></i> planta importada</span>
+    ${layout.ajuste && (layout.ajuste.fundidos||layout.ajuste.removidos)
+      ? `<span style="color:var(--warn)">${fmt(layout.ajuste.fundidos,0)} apoios de viga fundidos nos encontros
+         e ${fmt(layout.ajuste.removidos,0)} de laje removidos por choque, a menos de ${fmt(layout.ajuste.dist,2)} m</span>` : ""}`;
 
   // ---- gavetas
   $("pLajes").innerHTML = paneLajes(lajes,cfg,rGov);
