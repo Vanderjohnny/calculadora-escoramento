@@ -840,7 +840,7 @@ const largurasViga = lista => [...new Set((lista||[]).filter(e=>e.t==="viga").ma
 
 function lerDXF(txt){
   const ln = txt.split(/\r?\n/);
-  const n = ln.length, lines=[], polys=[], arcs=[], circles=[], txts=[];
+  const n = ln.length, lines=[], polys=[], arcs=[], circles=[], txts=[], dims=[];
   let compVigas = 0, i = 0;
   const limpa = s => s.replace(/\\P/g," ").replace(/\\[A-Za-z][^;]*;/g,"").replace(/[{}]/g,"").trim();
   while(i<n-1){
@@ -854,6 +854,9 @@ function lerDXF(txt){
           const a=[F("10"),F("20")], b=[F("11"),F("21")];
           lines.push({lay,a,b});
           if(LAY_VIGA.test(lay)) compVigas += Math.hypot(b[0]-a[0], b[1]-a[1]);
+        } else if(tipo==="DIMENSION" && g["42"] && g["13"] && g["14"]){
+          // a cota se autodescreve: 42 é a medida anotada, 13 e 14 os pontos medidos
+          dims.push({m:F("42"), a:[F("13"),F("23")], b:[F("14"),F("24")]});
         } else if(tipo==="LWPOLYLINE" && g["10"]){
           const xs=(g["10"]||[]).map(Number), ys=(g["20"]||[]).map(Number);
           if(xs.length>1 && xs.length===ys.length){
@@ -872,13 +875,33 @@ function lerDXF(txt){
     }
     i++;
   }
-  return {lines,polys,arcs,circles,txts,compVigas:compVigas/2};
+  return {lines,polys,arcs,circles,txts,dims,compVigas:compVigas/2};
 }
 
 /* --- Escala do desenho importado --------------------------------------
    O DXF nem sempre vem em metros 1:1. Como a prancha traz a seção de cada
    pilar no texto e o contorno dele na geometria, dá para medir um contra o
    outro e descobrir o fator sozinho. */
+// Pelas cotas do desenho: funciona em qualquer prancha que tenha cotas,
+// sem depender de camada de pilar nem de marca de seção.
+function escalaPorCotas(g){
+  const raz = [];
+  (g.dims||[]).forEach(d=>{
+    const dist = Math.hypot(d.b[0]-d.a[0], d.b[1]-d.a[1]);
+    if(!isFinite(dist) || dist < 0.2 || !isFinite(d.m) || d.m <= 1) return;
+    raz.push((d.m/100)/dist);                      // metros reais por unidade
+  });
+  if(raz.length < 4) return null;
+  raz.sort((a,b)=>a-b);
+  // cota angular, radial e por ordenada não medem a distância entre 13 e 14:
+  // descarta o que foge da mediana e refaz a conta com o que sobrou
+  const bruta = raz[Math.floor(raz.length/2)];
+  const bons = raz.filter(v=>Math.abs(v/bruta-1) <= 0.05);
+  const med = bons.length >= 3 ? bons[Math.floor(bons.length/2)] : bruta;
+  const fora = raz.length - bons.length;
+  return {fator:med, n:bons.length, descartadas:fora, total:raz.length,
+          confiavel: bons.length >= 4 && fora/raz.length < 0.6};
+}
 function detectarEscala(g, els){
   const pol = g.polys.filter(p=>LAY_PILAR.test(p.lay));
   const marcas = g.txts.filter(t=>/^P\d+[A-Z]?$/i.test(t.s));
@@ -911,6 +934,7 @@ function escalarGeo(g, f){
     arcs:  g.arcs.map(a=>({lay:a.lay, c:P(a.c), r:a.r*f, a0:a.a0, a1:a.a1})),
     circles: g.circles.map(c=>({lay:c.lay, c:P(c.c), r:c.r*f})),
     txts:  g.txts.map(t=>({lay:t.lay, s:t.s, x:t.x*f, y:t.y*f})),
+    dims:  (g.dims||[]).map(d=>({m:d.m, a:P(d.a), b:P(d.b)})),
     compVigas: (g.compVigas||0)*f
   };
 }
@@ -919,10 +943,29 @@ function prepararGeo(bruto, els){
   const esc = val("escala");
   let f = 1, via = "";
   if(esc==="auto"){
-    const d = detectarEscala(bruto, els);
-    if(d){ f = d.fator; via = `detectada nos ${d.n} pilares: 1 unidade = ${fmt(f,3)} m` +
-      (d.confiavel ? "" : ` — ${d.fora} pilares fora da mediana, confira`); }
-    else { via = "não foi possível detectar pelos pilares; adotado 1 unidade = 1 m"; }
+    const dp = detectarEscala(bruto, els);            // seção do pilar vs contorno
+    const dc = escalaPorCotas(bruto);                 // medida anotada vs distância
+    if(dp && dc){
+      const difere = Math.abs(dp.fator/dc.fator - 1) > 0.03;
+      // a seção do pilar é medida direta e casa exato; a cota serve de conferência
+      f = dp.fator;
+      via = difere
+        ? `<b>as duas aferições discordam</b> — pilares dizem ${fmt(dp.fator,3)} m/unidade (${dp.n} pilares)
+           e as cotas dizem ${fmt(dc.fator,3)} (${dc.n} cotas). Adotada a dos pilares; confira antes de usar.`
+        : `confirmada por dois caminhos: ${dp.n} pilares e ${dc.n} cotas concordam em 1 unidade = ${fmt(f,3)} m`;
+    } else if(dc){
+      f = dc.fator;
+      via = `detectada em ${dc.n} cotas do desenho: 1 unidade = ${fmt(f,3)} m`
+          + (dc.descartadas ? ` (${dc.descartadas} de ${dc.total} descartadas por não medirem distância)` : "")
+          + (dc.confiavel ? "" : " — amostra fraca, confira");
+    } else if(dp){
+      f = dp.fator;
+      via = `detectada nos ${dp.n} pilares: 1 unidade = ${fmt(f,3)} m`
+          + (dp.confiavel ? "" : ` — ${dp.fora} pilares fora da mediana, confira`);
+    } else {
+      via = `<b>não foi possível detectar a escala</b> — a prancha não tem cotas nem seção de pilar
+             para calibrar. Adotado 1 unidade = 1 m; informe o fator à mão se estiver errado.`;
+    }
   } else if(esc==="custom"){ f = num("escalaFator")||1; via = `informada: 1 unidade = ${fmt(f,3)} m`; }
   else { f = parseFloat(esc)||1; via = `1 unidade = ${fmt(f,3)} m`; }
   $("escalaFator").value = +f.toFixed(4);
@@ -2762,6 +2805,12 @@ async function carregarArquivo(f){
     const els = lerMarcas(itens);
     // a geometria depende das seções lidas: elas dão a escala e a largura de viga
     if(ULT.geoBruto) GEO = prepararGeo(ULT.geoBruto, els);
+    const semVP = !els.some(e=>e.t==="viga") && !els.some(e=>e.t==="pilar");
+    const aviso = semVP
+      ? `<br><span style="color:var(--warn)"><b>Prancha sem marcas de viga e pilar.</b> Isto costuma ser prancha de
+         armadura, não de formas: dela saem as lajes e a geometria, mas não as seções. A grade de laje é lançada
+         normalmente; as escoras de viga usam seção padrão até você lançar as vigas em Elementos, ou carregar a
+         prancha de formas correspondente.</span>` : "";
     let m2 = "";
     const cv = GEO ? GEO.compVigas : compVigas;
     if(cv>1 && els.some(e=>e.t==="viga")){
@@ -2777,7 +2826,7 @@ async function carregarArquivo(f){
     } else if(nome.endsWith(".dxf")) m3 = " Sem marcas de laje suficientes para delimitar o pavimento — o desenho não foi gerado.";
     mostrarDesforma();
     enquadrar();
-    aplicar(els, `${f.name} lido.${m1}${m2}${m3}`);
+    aplicar(els, `${f.name} lido.${m1}${m2}${m3}${aviso}`);
   }catch(err){
     if($("parseMsg")) $("parseMsg").innerHTML = `<span style="color:var(--bad)">Não foi possível ler: ${err.message}</span>`;
   }
