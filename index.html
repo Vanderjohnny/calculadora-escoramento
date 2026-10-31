@@ -379,6 +379,11 @@ footer.sheet b{color:var(--ink-2)}
     <div class="f"><label for="compVigasTot">Compr. de vigas <span class="u">(m)</span></label><input type="number" id="compVigasTot" value="350" step="5"></div>
     <div class="f"><label for="reusoComp">Reaproveitamentos da placa</label><input type="number" id="reusoComp" value="10" step="1"></div>
   </div>
+  <div class="grid2">
+    <div class="f"><label for="alturaViga">Altura de viga adotada <span class="u">(cm)</span></label><input type="number" id="alturaViga" value="60" step="5">
+      <div class="hint">Usada quando a prancha não traz a seção escrita. A largura sai medida do desenho, mas a altura
+      não existe em planta — é o único dado que o app não consegue deduzir.</div></div>
+  </div>
   <div class="f"><label class="chk" style="font-size:12px"><input type="checkbox" id="girarChapa"> girar peças 90° no plano de corte</label>
     <div class="hint">Girar aumenta o aproveitamento, mas troca a direção das fibras: a face do compensado deve vazar
     transversalmente aos barrotes, e girada a chapa perde capacidade à flexão. Ligue só para peças que não trabalham,
@@ -982,6 +987,39 @@ function prepararGeo(bruto, els){
   return g;
 }
 
+/* --- Elementos a partir da geometria -----------------------------------
+   Prancha de armadura não traz as marcas de viga e pilar, mas traz o
+   desenho delas. O contorno do pilar dá a seção exata; o pareamento das
+   arestas de viga dá a largura. Só a altura da viga não existe em planta. */
+function pilaresDaGeometria(g){
+  const bb = g.bb, out = [];
+  (g.polys||[]).filter(p=>LAY_PILAR.test(p.lay)).forEach((p,i)=>{
+    const xs=p.pts.map(q=>q[0]), ys=p.pts.map(q=>q[1]);
+    const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
+    if(cx<bb.x0||cx>bb.x1||cy<bb.y0||cy>bb.y1) return;
+    const w=Math.round((Math.max(...xs)-Math.min(...xs))*100), h=Math.round((Math.max(...ys)-Math.min(...ys))*100);
+    if(w<8 || h<8 || w>600 || h>600) return;
+    out.push({id:`P${i+1}`, t:"pilar", b:Math.min(w,h), h:Math.max(w,h), e:0, q:3.0, deGeo:true});
+  });
+  return out;
+}
+function vigasDaGeometria(g, alturaPadrao){
+  const grupos = {};
+  (g.eixos||[]).forEach(e=>{
+    const b = Math.max(8, Math.round(e.larg*100));
+    const L = Math.hypot(e.b[0]-e.a[0], e.b[1]-e.a[1]);
+    (grupos[b] = grupos[b] || {b, comp:0, n:0});
+    grupos[b].comp += L; grupos[b].n++;
+  });
+  const todos = Object.values(grupos);
+  const total = todos.reduce((s,o)=>s+o.comp, 0);
+  // grupo com um eixo curto é fragmento de pareamento, não um tipo de viga
+  const bons = todos.filter(o=>o.comp >= 1.5 && o.comp/total >= 0.02);
+  return (bons.length ? bons : todos).sort((a,b)=>a.b-b.b).map(o=>({
+    id:`V${o.b}`, t:"viga", b:o.b, h:alturaPadrao, e:0, q:+o.comp.toFixed(1), deGeo:true, nEixos:o.n
+  }));
+}
+
 // Região do pavimento: caixa das marcas de laje, com folga.
 function bboxPlano(txts){
   const lb = txts.filter(t=>/^L\d+[A-Z]?$/i.test(t.s) && (/laje/i.test(t.lay)||!t.lay));
@@ -1055,8 +1093,14 @@ function construirMascara(geo, bb, cell){
     if(c2>0)pf(p-1); if(c2<W-1)pf(p+1); if(r>0)pf(p-W); if(r<H-1)pf(p+W); }
   let bruto=0; for(let i=0;i<W*H;i++) if(fec[i]||!fora[i]) bruto++;
 
+  // vizinhança da laje: o que está longe dela é bloco de detalhe, legenda ou
+  // selo que caiu dentro da caixa, e não faz parte da planta
+  const kv = Math.max(2, Math.round(2.0/cell));
+  const viz = dil(msk, kv);
+
   return {W,H,cell,bb,msk,blk,
     in:(x,y)=>{ const c=cx(x), r=cy(y); return c>=0&&c<W&&r>=0&&r<H && msk[r*W+c]===1; },
+    perto:(x,y)=>{ const c=cx(x), r=cy(y); return c>=0&&c<W&&r>=0&&r<H && viz[r*W+c]===1; },
     area: dentro*cell*cell, areaBruta: bruto*cell*cell, cxm, cym};
 }
 
@@ -1739,19 +1783,24 @@ function desenharEm(svg, cfg, layout, vis, cota, vw){
   const path = (d,at) => mk("path", Object.assign({d, fill:"none"}, at));
 
   if(vis.plan){
+    const M = GEO.mask;
+    const perto = (x,y) => !M || !M.perto || M.perto(x,y);
     let dFino="", dViga="", dPilar="";
     GEO.lines.forEach(l=>{
       if(LAY_IGN.test(l.lay)) return;
+      if(!perto((l.a[0]+l.b[0])/2, (l.a[1]+l.b[1])/2)) return;
       const s = `M${l.a[0]} ${l.a[1]}L${l.b[0]} ${l.b[1]}`;
       if(LAY_PILAR.test(l.lay)) dPilar+=s; else if(LAY_VIGA.test(l.lay)) dViga+=s; else dFino+=s;
     });
     GEO.polys.forEach(p=>{
       if(LAY_IGN.test(p.lay)) return;
+      const cx2=p.pts.reduce((s,q)=>s+q[0],0)/p.pts.length, cy2=p.pts.reduce((s,q)=>s+q[1],0)/p.pts.length;
+      if(!perto(cx2,cy2)) return;
       const s = "M"+p.pts.map(pt=>pt.join(" ")).join("L")+(p.closed?"Z":"");
       if(LAY_PILAR.test(p.lay)) dPilar+=s; else if(LAY_VIGA.test(p.lay)) dViga+=s; else dFino+=s;
     });
     GEO.arcs.forEach(a=>{
-      if(LAY_IGN.test(a.lay)) return;
+      if(LAY_IGN.test(a.lay) || !perto(a.c[0],a.c[1])) return;
       const r=a.r, p0=[a.c[0]+r*Math.cos(a.a0*Math.PI/180), a.c[1]+r*Math.sin(a.a0*Math.PI/180)];
       const p1=[a.c[0]+r*Math.cos(a.a1*Math.PI/180), a.c[1]+r*Math.sin(a.a1*Math.PI/180)];
       let sw=(a.a1-a.a0+360)%360; const s=`M${p0[0]} ${p0[1]}A${r} ${r} 0 ${sw>180?1:0} 1 ${p1[0]} ${p1[1]}`;
@@ -2805,19 +2854,34 @@ async function carregarArquivo(f){
     const els = lerMarcas(itens);
     // a geometria depende das seções lidas: elas dão a escala e a largura de viga
     if(ULT.geoBruto) GEO = prepararGeo(ULT.geoBruto, els);
-    const semVP = !els.some(e=>e.t==="viga") && !els.some(e=>e.t==="pilar");
-    const aviso = semVP
-      ? `<br><span style="color:var(--warn)"><b>Prancha sem marcas de viga e pilar.</b> Isto costuma ser prancha de
-         armadura, não de formas: dela saem as lajes e a geometria, mas não as seções. A grade de laje é lançada
-         normalmente; as escoras de viga usam seção padrão até você lançar as vigas em Elementos, ou carregar a
-         prancha de formas correspondente.</span>` : "";
+    // sem marca de viga ou pilar, o desenho ainda tem a geometria delas
+    let aviso = "";
+    if(GEO){
+      const semP = !els.some(e=>e.t==="pilar"), semV = !els.some(e=>e.t==="viga");
+      const add = [];
+      if(semP){ const p = pilaresDaGeometria(GEO); els.push(...p);
+        if(p.length) add.push(`${p.length} pilares pelo contorno, com a seção medida no desenho`); }
+      if(semV){ const v = vigasDaGeometria(GEO, num("alturaViga")||60); els.push(...v);
+        if(v.length) add.push(`${v.length} tipos de viga pela largura dos eixos`
+          + ` (${v.map(x=>x.b+" cm").join(", ")}), altura adotada ${fmt(num("alturaViga")||60,0)} cm`); }
+      if(add.length) aviso =
+        `<br><span style="color:var(--warn)"><b>Prancha sem marcas de viga e pilar</b> — é prancha de armadura,
+         não de formas. Deduzi da geometria: ${add.join("; ")}.
+         <b>A altura da viga não existe em planta</b>: confira em Elementos ou carregue a prancha de formas.</span>`;
+    }
     let m2 = "";
     const cv = GEO ? GEO.compVigas : compVigas;
-    if(cv>1 && els.some(e=>e.t==="viga")){
-      const nv = els.filter(e=>e.t==="viga").length;
-      els.forEach(e=>{ if(e.t==="viga") e.q = +(cv/nv).toFixed(1); });
+    const vg = els.filter(e=>e.t==="viga");
+    if(vg.some(e=>e.deGeo)){
+      // deduzidas do desenho: cada tipo já vem com o comprimento medido nos eixos
+      const soma = vg.reduce((s,e)=>s+e.q, 0);
+      $("compVigasTot").value = Math.round(soma);
+      m2 = ` Vigas: ${fmt(soma,0)} m medidos eixo a eixo.`;
+    } else if(cv>1 && vg.length){
+      // vindas de marca: só se conhece o total, então rateia
+      vg.forEach(e=>{ e.q = +(cv/vg.length).toFixed(1); });
       $("compVigasTot").value = Math.round(cv);
-      m2 = ` Vigas: ${fmt(cv,0)} m pela geometria.`;
+      m2 = ` Vigas: ${fmt(cv,0)} m pela geometria, rateados entre ${vg.length}.`;
     }
     let m3 = "";
     if(GEO && GEO.mask){
