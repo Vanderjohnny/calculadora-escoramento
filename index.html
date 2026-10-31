@@ -841,7 +841,12 @@ function mapearCamadas(bruto){
   recompilarCamadas();
   return {todas, achados, semUso: novas.filter(s=>!Object.values(achados).some(a=>a.includes(s)))};
 }
-const largurasViga = lista => [...new Set((lista||[]).filter(e=>e.t==="viga").map(e=>e.b))].filter(b=>b>0);
+// Larguras para a janela de pareamento. As seções escritas na prancha marcam
+// só parte das vigas — a V de transição aparece, a viga comum de 14 não.
+// Por isso a janela soma as seções lidas às larguras usuais de projeto.
+const LARG_USUAL = [10,12,14,15,17,19,20,25,30];
+const largurasViga = lista => [...new Set(((lista||[]).filter(e=>e.t==="viga").map(e=>e.b))
+  .concat(LARG_USUAL))].filter(b=>b>0);
 
 function lerDXF(txt){
   const ln = txt.split(/\r?\n/);
@@ -1157,7 +1162,7 @@ function prepararGeo(bruto, els){
   }
 
   const g = escalarGeo(bruto, f);
-  const bb = bboxPlano(g.txts);
+  const bb = bboxPlano(g);
   if(!bb) return null;
   g.bb = bb;
   g.mask = construirMascara(g, bb, 0.10);
@@ -1201,13 +1206,49 @@ function vigasDaGeometria(g, alturaPadrao){
   }));
 }
 
-// Região do pavimento: caixa das marcas de laje, com folga.
-function bboxPlano(txts){
+// Região do pavimento: parte da caixa das marcas de laje e segue a rede de
+// vigas até onde ela chega. A marca fica no meio do pano, então uma folga
+// fixa não alcança a viga de borda de um pano grande — e viga sem caixa é
+// viga sem escora. O que não está ligado à rede (selo, corte, detalhe) fica
+// de fora porque a busca só anda de aresta em aresta.
+const PERTO_REDE = 0.80;   // vão do pilar entre duas faces da mesma rede
+function bboxPlano(geo){
+  const txts = geo.txts || [];
   const lb = txts.filter(t=>/^L\d+[A-Z]?$/i.test(t.s) && (/laje/i.test(t.lay)||!t.lay));
   const src = lb.length>=3 ? lb : txts.filter(t=>/^[LVP]\d/i.test(t.s));
   if(src.length<3) return null;
   const xs=src.map(t=>t.x), ys=src.map(t=>t.y);   // margem em metros, já na escala real
-  return {x0:Math.min(...xs)-4, x1:Math.max(...xs)+4, y0:Math.min(...ys)-4, y1:Math.max(...ys)+4};
+  const bb = {x0:Math.min(...xs)-4, x1:Math.max(...xs)+4,
+              y0:Math.min(...ys)-4, y1:Math.max(...ys)+4};
+
+  const seg = [];
+  (geo.lines||[]).forEach(l=>{ if(LAY_VIGA.test(l.lay)) seg.push([l.a, l.b]); });
+  (geo.polys||[]).forEach(p=>{ if(!LAY_VIGA.test(p.lay)) return;
+    const m = p.closed ? p.pts.length : p.pts.length-1;
+    for(let k=0;k<m;k++) seg.push([p.pts[k], p.pts[(k+1)%p.pts.length]]); });
+  if(!seg.length) return bb;
+
+  const dPonto = (p, s) => { const dx=s[1][0]-s[0][0], dy=s[1][1]-s[0][1], c=dx*dx+dy*dy;
+    const t = c ? Math.max(0, Math.min(1, ((p[0]-s[0][0])*dx + (p[1]-s[0][1])*dy)/c)) : 0;
+    return Math.hypot(p[0]-(s[0][0]+dx*t), p[1]-(s[0][1]+dy*t)); };
+  const liga = (s,o) => dPonto(s[0],o)<=PERTO_REDE || dPonto(s[1],o)<=PERTO_REDE ||
+                        dPonto(o[0],s)<=PERTO_REDE || dPonto(o[1],s)<=PERTO_REDE;
+
+  const na = new Array(seg.length).fill(false);
+  let fila = [];
+  seg.forEach((s,i)=>{ if(s.some(p=>p[0]>=bb.x0&&p[0]<=bb.x1&&p[1]>=bb.y0&&p[1]<=bb.y1)){
+    na[i]=true; fila.push(i); } });
+  while(fila.length){
+    const prox = [];
+    for(const i of fila) for(let j=0;j<seg.length;j++){
+      if(na[j] || !liga(seg[i], seg[j])) continue;
+      na[j]=true; prox.push(j); }
+    fila = prox;
+  }
+  seg.forEach((s,i)=>{ if(!na[i]) return;
+    for(const p of s){ bb.x0=Math.min(bb.x0,p[0]-0.5); bb.x1=Math.max(bb.x1,p[0]+0.5);
+                       bb.y0=Math.min(bb.y0,p[1]-0.5); bb.y1=Math.max(bb.y1,p[1]+0.5); } });
+  return bb;
 }
 
 // Máscara "dentro do pavimento": flood fill a partir de todas as marcas de laje,
@@ -1288,38 +1329,97 @@ function construirMascara(geo, bb, cell){
 // Eixos de viga: pares de arestas paralelas e próximas na camada de vigas.
 // A janela de distância vem das seções da própria prancha — sem isso o
 // pareamento casa arestas de vigas vizinhas e inventa vigas largas demais.
+// Uma aresta serve a mais de uma viga: a face longa de um trecho contínuo
+// encosta em vários trechos curtos do outro lado. Por isso o pareamento é
+// por trecho, não pela aresta inteira, e cada trecho sai do pedaço em que
+// as duas arestas realmente se cobrem.
+const MIN_ARESTA = 0.25;   // menor que isto não é face de viga, é traço solto
 function eixosViga(geo, larguras){
-  const bs = (larguras && larguras.length) ? larguras : [10,14,25];
+  const bs = (larguras && larguras.length) ? larguras : LARG_USUAL;
   const dmin = Math.max(0.05, Math.min(...bs)/100 - 0.02);
   const dmax = Math.max(...bs)/100 + 0.05;
-  const L = geo.lines.filter(l=>LAY_VIGA.test(l.lay))
-    .map(l=>{ const dx=l.b[0]-l.a[0], dy=l.b[1]-l.a[1], len=Math.hypot(dx,dy);
-      return {...l, len, ux:dx/len, uy:dy/len}; })
-    .filter(l=>l.len>0.6);
-  const usados = new Set(), eixos = [];
-  for(let i=0;i<L.length;i++){
-    if(usados.has(i)) continue;
-    let par=null, pd=Infinity;
-    for(let j=0;j<L.length;j++){
-      if(i===j||usados.has(j)) continue;
-      if(Math.abs(L[i].ux*L[j].ux + L[i].uy*L[j].uy) < 0.995) continue;   // paralelas
-      const vx=L[j].a[0]-L[i].a[0], vy=L[j].a[1]-L[i].a[1];
-      const d = Math.abs(-L[i].uy*vx + L[i].ux*vy);                        // distância perpendicular
-      if(d < dmin || d > dmax) continue;
-      // sobreposição longitudinal de pelo menos metade da menor aresta
-      const t0 = L[i].ux*vx + L[i].uy*vy, t1 = t0 + (L[j].ux*L[i].ux+L[j].uy*L[i].uy)*L[j].len;
-      const ini = Math.max(0, Math.min(t0,t1)), fim = Math.min(L[i].len, Math.max(t0,t1));
-      if(fim - ini < 0.5*Math.min(L[i].len, L[j].len)) continue;
-      if(d < pd){ pd = d; par = j; }
-    }
-    if(par!==null){
-      usados.add(i); usados.add(par);
-      const o = L[par];
-      eixos.push({a:[(L[i].a[0]+o.a[0])/2,(L[i].a[1]+o.a[1])/2],
-                  b:[(L[i].b[0]+o.b[0])/2,(L[i].b[1]+o.b[1])/2], larg:pd});
+
+  const L = [];
+  const guardar = (a,b) => { const dx=b[0]-a[0], dy=b[1]-a[1], len=Math.hypot(dx,dy);
+    if(len < MIN_ARESTA) return;
+    L.push({a, len, ux:dx/len, uy:dy/len, livre:[[0,len]]}); };
+  geo.lines.forEach(l=>{ if(LAY_VIGA.test(l.lay)) guardar(l.a, l.b); });
+  geo.polys.forEach(p=>{ if(!LAY_VIGA.test(p.lay)) return;      // viga desenhada como polilinha
+    const m = p.closed ? p.pts.length : p.pts.length-1;
+    for(let k=0;k<m;k++) guardar(p.pts[k], p.pts[(k+1)%p.pts.length]); });
+  L.sort((p,q)=>q.len-p.len);
+
+  const corta = (iv, ini, fim) => { const o=[];
+    iv.forEach(([s,e])=>{ if(e<=ini || s>=fim){ o.push([s,e]); return; }
+      if(s<ini) o.push([s,ini]); if(e>fim) o.push([fim,e]); });
+    return o.filter(([s,e])=>e-s > 1e-6); };
+
+  const eixos = [];
+  for(const A of L){
+    for(;;){
+      const livre = A.livre.filter(([s,e])=>e-s >= MIN_ARESTA);
+      if(!livre.length) break;
+      let bom = null;
+      for(const B of L){
+        if(B===A) continue;
+        if(Math.abs(A.ux*B.ux + A.uy*B.uy) < 0.995) continue;        // paralelas
+        const vx=B.a[0]-A.a[0], vy=B.a[1]-A.a[1];
+        const d = Math.abs(-A.uy*vx + A.ux*vy);                      // distância perpendicular
+        if(d < dmin || d > dmax) continue;
+        if(bom && d >= bom.d) continue;                              // a mais próxima manda
+        const t0 = A.ux*vx + A.uy*vy;
+        const t1 = t0 + (B.ux*A.ux + B.uy*A.uy)*B.len;
+        const lo = Math.min(t0,t1), hi = Math.max(t0,t1), k = (t1-t0)/B.len;
+        for(const [s,e] of livre){
+          const ini = Math.max(s,lo), fim = Math.min(e,hi);
+          if(fim-ini < Math.max(MIN_ARESTA, d)) continue;            // cabeceira não pareia com lateral
+          const b0=(ini-t0)/k, b1=(fim-t0)/k;
+          const blo=Math.min(b0,b1), bhi=Math.max(b0,b1);
+          if(!B.livre.some(([s2,e2])=>s2<=blo+1e-6 && e2>=bhi-1e-6)) continue;
+          bom = {d, ini, fim, B, blo, bhi}; break;
+        }
+      }
+      if(!bom) break;
+      const {d, ini, fim, B, blo, bhi} = bom;
+      const sn = (-A.uy*(B.a[0]-A.a[0]) + A.ux*(B.a[1]-A.a[1])) > 0 ? 1 : -1;
+      const ox = -A.uy*sn*d/2, oy = A.ux*sn*d/2;
+      eixos.push({a:[A.a[0]+A.ux*ini+ox, A.a[1]+A.uy*ini+oy],
+                  b:[A.a[0]+A.ux*fim+ox, A.a[1]+A.uy*fim+oy], larg:d});
+      A.livre = corta(A.livre, ini, fim);
+      B.livre = corta(B.livre, blo, bhi);
     }
   }
-  return eixos;
+  return juntarEixos(eixos);
+}
+
+// Trechos vizinhos da mesma viga voltam a ser um eixo só.
+function juntarEixos(eixos, tol=0.05, folga=0.10){
+  const out = [];
+  eixos.sort((p,q)=>Math.hypot(q.b[0]-q.a[0],q.b[1]-q.a[1]) - Math.hypot(p.b[0]-p.a[0],p.b[1]-p.a[1]));
+  for(const e of eixos){
+    let fundiu = false;
+    for(const o of out){
+      if(Math.abs(Math.round(o.larg*100) - Math.round(e.larg*100)) > 1) continue;
+      const dx=o.b[0]-o.a[0], dy=o.b[1]-o.a[1], c=Math.hypot(dx,dy);
+      if(c < 1e-9) continue;
+      const ux=dx/c, uy=dy/c;
+      const ts = [];
+      for(const q of [e.a, e.b]){
+        const vx=q[0]-o.a[0], vy=q[1]-o.a[1];
+        if(Math.abs(-uy*vx + ux*vy) > tol){ ts.length = 0; break; }
+        ts.push(ux*vx + uy*vy);
+      }
+      if(ts.length < 2) continue;
+      const lo=Math.min(...ts), hi=Math.max(...ts);
+      if(lo > c+folga || hi < -folga) continue;
+      const nlo=Math.min(0,lo), nhi=Math.max(c,hi);
+      const ax=o.a[0]+ux*nlo, ay=o.a[1]+uy*nlo;
+      o.a=[ax,ay]; o.b=[ax+ux*(nhi-nlo), ay+uy*(nhi-nlo)];
+      fundiu = true; break;
+    }
+    if(!fundiu) out.push({a:e.a.slice(), b:e.b.slice(), larg:e.larg});
+  }
+  return out;
 }
 
 /* ===================================================================
@@ -3006,6 +3106,10 @@ function aplicar(els,msg){
 }
 async function carregarArquivo(f){
   ULT.nome = f.name.replace(/\.[^.]+$/,"");
+  // o nome da prancha anterior não pode sobreviver ao arquivo novo: ele assina
+  // o carimbo e o cabeçalho do PDF
+  $("projName").value = ULT.nome;
+  $("preset").selectedIndex = -1;
   try{
     const nome = f.name.toLowerCase(); let itens, compVigas=0;
     // projeto novo: o que era da prancha anterior sai
