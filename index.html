@@ -907,6 +907,109 @@ function escalaPorCotas(g){
   return {fator:med, n:bons.length, descartadas:fora, total:raz.length,
           confiavel: bons.length >= 4 && fora/raz.length < 0.6};
 }
+/* --- Escala por plausibilidade ----------------------------------------
+   Último recurso, e o que funciona sem cota, sem marca e sem camada
+   conhecida: estrutura tem medidas restritas. Viga de concreto tem
+   largura num conjunto pequeno, pilar tem lado entre 12 e 60 cm, e
+   pavimento tem de 6 a 150 m. Testa fatores candidatos e fica com o que
+   faz tudo isso bater ao mesmo tempo. O discriminador forte é a moda:
+   num desenho real a maioria das vigas tem a mesma largura, então o pico
+   do histograma cai exatamente num valor que se executa. */
+const VIGAS_USUAIS = [10,12,14,15,17,19,20,25,30,35,40];
+const FATORES = [0.001,0.002,0.0025,0.005,0.01,0.02,0.025,0.05,0.1,0.2,0.25,
+                 0.5,1,2,2.5,5,10,100];
+
+// Aresta de viga é comprida em relação ao afastamento do par: 5 m de viga
+// para 14 cm de largura dá razão 36. Hachura e armadura formam pares curtos
+// e largos, razão baixa. Isso separa sem depender do nome da camada, e sem
+// saber a escala, porque é uma proporção.
+const RAZAO_VIGA = 10;
+function paresParalelos(g, limite){
+  const seg = [];
+  let maxc = 0;
+  (g.lines||[]).forEach(l=>{
+    if(LAY_IGN.test(l.lay)) return;
+    const dx=l.b[0]-l.a[0], dy=l.b[1]-l.a[1], c=Math.hypot(dx,dy);
+    if(c>1e-6){ seg.push({lay:l.lay, x:l.a[0], y:l.a[1], c, ux:dx/c, uy:dy/c}); if(c>maxc) maxc=c; }
+  });
+  seg.sort((a,b)=>b.c-a.c);
+  const S = seg.slice(0, limite||1200).filter(s=>s.c >= maxc*0.03), out = [];
+  for(let i=0;i<S.length;i++){
+    let melhor = Infinity, lmelhor = 0;
+    for(let j=0;j<S.length;j++){
+      if(i===j) continue;
+      if(Math.abs(S[i].ux*S[j].ux + S[i].uy*S[j].uy) < 0.995) continue;
+      const wx=S[j].x-S[i].x, wy=S[j].y-S[i].y;
+      const d = Math.abs(-S[i].uy*wx + S[i].ux*wy);
+      if(d < 1e-4 || d >= melhor) continue;
+      const t0 = S[i].ux*wx + S[i].uy*wy;
+      const dir = S[i].ux*S[j].ux + S[i].uy*S[j].uy > 0 ? 1 : -1;
+      const t1 = t0 + dir*S[j].c;
+      const ini = Math.max(0, Math.min(t0,t1)), fim = Math.min(S[i].c, Math.max(t0,t1));
+      const sobrep = fim - ini;
+      if(sobrep <= 0 || sobrep < d*RAZAO_VIGA) continue;      // par curto e largo: não é viga
+      melhor = d; lmelhor = sobrep;
+    }
+    if(isFinite(melhor)) out.push(melhor);
+  }
+  return out;
+}
+function caixasFechadas(g){
+  return (g.polys||[]).filter(p=>!LAY_IGN.test(p.lay) && p.pts.length>=4).map(p=>{
+    const xs=p.pts.map(q=>q[0]), ys=p.pts.map(q=>q[1]);
+    const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
+    return [Math.min(w,h), Math.max(w,h)];
+  }).filter(c=>c[0]>1e-6);
+}
+function escalaPorPlausibilidade(g){
+  const pares = paresParalelos(g), caixas = caixasFechadas(g);
+  const marcas = (g.txts||[]).filter(t=>/^[LVP]F?\d+[A-Z]?$/i.test(t.s));
+  const fonte = marcas.length>=3 ? marcas : (g.txts||[]).filter(t=>!LAY_IGN.test(t.lay));
+  let ext = null;
+  if(fonte.length>=3){
+    const xs=fonte.map(t=>t.x), ys=fonte.map(t=>t.y);
+    ext = Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys));
+  }
+  if(!pares.length && !caixas.length) return null;
+
+  const notas = FATORES.map(f=>{
+    let n = 0; const det = {f};
+    if(ext!=null){
+      const maior = ext*f;
+      if(maior < 6 || maior > 150) return {n:-1, f};
+      n += (maior>=12 && maior<=90) ? 2 : 0.5;
+      det.pavimento = maior;
+    }
+    if(pares.length){
+      const hist = {};
+      pares.forEach(d=>{ const k = Math.round(d*f*100/0.5)*0.5; hist[k]=(hist[k]||0)+1; });
+      const [pico,qtd] = Object.entries(hist).sort((a,b)=>b[1]-a[1])[0];
+      const prox = Math.min(...VIGAS_USUAIS.map(w=>Math.abs(+pico-w)));
+      const conc = qtd/pares.length;
+      det.pico = +pico; det.conc = conc;
+      if(prox <= 0.6) n += 5*Math.min(1, conc/0.25);
+      else if(prox <= 1.5) n += 1.5*Math.min(1, conc/0.25);
+      const bons = pares.filter(d=>{ const v=d*f*100;
+        return VIGAS_USUAIS.some(w=>Math.abs(v-w)<=1); }).length;
+      n += 2*(bons/pares.length);
+    }
+    if(caixas.length){
+      const ok = caixas.filter(([a,b])=>{ const mn=a*f*100, mx=b*f*100;
+        return mn>=12 && mn<=60 && mx>=20 && mx<=600; }).length;
+      n += 2.5*(ok/caixas.length);
+      det.pilares = ok+"/"+caixas.length;
+    }
+    return {n, f, det};
+  }).filter(r=>r.n>0).sort((a,b)=>b.n-a.n);
+
+  if(!notas.length) return null;
+  const top = notas[0], seg = notas[1];
+  const margem = seg ? (top.n-seg.n)/top.n : 1;
+  return {fator:top.f, nota:top.n, margem, pico:top.det.pico, conc:top.det.conc,
+          pavimento:top.det.pavimento, pilares:top.det.pilares,
+          nPares:pares.length, confiavel: margem >= 0.25 && top.n >= 5};
+}
+
 function detectarEscala(g, els){
   const pol = g.polys.filter(p=>LAY_PILAR.test(p.lay));
   const marcas = g.txts.filter(t=>/^P\d+[A-Z]?$/i.test(t.s));
@@ -943,6 +1046,61 @@ function escalarGeo(g, f){
     compVigas: (g.compVigas||0)*f
   };
 }
+/* --- Camadas pela geometria -------------------------------------------
+   Quando o nome não diz nada, a função diz: a camada cujas linhas formam
+   pares paralelos na largura de viga É a camada de viga, e a que tem
+   polilinhas fechadas de tamanho de pilar É a de pilar. */
+function classificarPorGeometria(g, fator){
+  const achou = {viga:null, pilar:null};
+  // viga: pares paralelos na faixa de largura usual
+  const porCam = {};
+  const todas = (g.lines||[]).filter(l=>!LAY_IGN.test(l.lay)).map(l=>{
+    const dx=l.b[0]-l.a[0], dy=l.b[1]-l.a[1], c=Math.hypot(dx,dy);
+    return {lay:l.lay, x:l.a[0], y:l.a[1], c, ux:dx/c, uy:dy/c};
+  }).filter(s=>s.c>1e-6).sort((a,b)=>b.c-a.c);
+  const maxc = todas.length ? todas[0].c : 1;
+  const seg = todas.slice(0,1200).filter(s=>s.c >= maxc*0.03);
+  for(let i=0;i<seg.length;i++){
+    for(let j=0;j<seg.length;j++){
+      if(i===j || seg[i].lay!==seg[j].lay) continue;
+      if(Math.abs(seg[i].ux*seg[j].ux + seg[i].uy*seg[j].uy) < 0.995) continue;
+      const wx=seg[j].x-seg[i].x, wy=seg[j].y-seg[i].y;
+      const du = Math.abs(-seg[i].uy*wx + seg[i].ux*wy);
+      const d = du*fator*100;
+      if(d < 8 || d > 45) continue;
+      const t0 = seg[i].ux*wx + seg[i].uy*wy;
+      const dir = seg[i].ux*seg[j].ux + seg[i].uy*seg[j].uy > 0 ? 1 : -1;
+      const t1 = t0 + dir*seg[j].c;
+      const ini = Math.max(0, Math.min(t0,t1)), fim = Math.min(seg[i].c, Math.max(t0,t1));
+      if(fim - ini < du*RAZAO_VIGA) continue;
+      if(VIGAS_USUAIS.some(w=>Math.abs(d-w)<=1)) porCam[seg[i].lay]=(porCam[seg[i].lay]||0)+1;
+      break;
+    }
+  }
+  const vig = Object.entries(porCam).sort((a,b)=>b[1]-a[1])[0];
+  if(vig && vig[1] >= 6) achou.viga = vig[0];
+
+  // pilar: polilinhas fechadas com lado de pilar. Hachura também tem muitas
+  // formas pequenas, mas todas do mesmo tamanho; pilar de um pavimento varia
+  // bastante e são poucas dezenas.
+  const pil = {};
+  (g.polys||[]).forEach(p=>{
+    if(LAY_IGN.test(p.lay) || p.pts.length<4 || !p.closed) return;
+    const xs=p.pts.map(q=>q[0]), ys=p.pts.map(q=>q[1]);
+    const w=(Math.max(...xs)-Math.min(...xs))*fator*100, h=(Math.max(...ys)-Math.min(...ys))*fator*100;
+    const mn=Math.min(w,h), mx=Math.max(w,h);
+    if(mn<12 || mn>60 || mx<20 || mx>600) return;
+    (pil[p.lay] = pil[p.lay] || {n:0, tam:new Set()});
+    pil[p.lay].n++;
+    pil[p.lay].tam.add(`${Math.round(mn/5)}x${Math.round(mx/5)}`);
+  });
+  const cand = Object.entries(pil)
+    .filter(([lay,o])=> lay!==achou.viga && o.n>=3 && o.n<=80 && o.tam.size/o.n >= 0.25)
+    .sort((a,b)=> b[1].tam.size - a[1].tam.size || b[1].n - a[1].n);
+  if(cand.length) achou.pilar = cand[0][0];
+  return achou;
+}
+
 // Monta a geometria utilizável a partir do bruto: escala, caixa, máscara e eixos.
 function prepararGeo(bruto, els){
   const esc = val("escala");
@@ -968,12 +1126,35 @@ function prepararGeo(bruto, els){
       via = `detectada nos ${dp.n} pilares: 1 unidade = ${fmt(f,3)} m`
           + (dp.confiavel ? "" : ` — ${dp.fora} pilares fora da mediana, confira`);
     } else {
-      via = `<b>não foi possível detectar a escala</b> — a prancha não tem cotas nem seção de pilar
-             para calibrar. Adotado 1 unidade = 1 m; informe o fator à mão se estiver errado.`;
+      // sem cota e sem marca de pilar: deduz pelas medidas que a estrutura permite ter
+      const dz = escalaPorPlausibilidade(bruto);
+      if(dz){
+        f = dz.fator;
+        via = `deduzida das proporções do desenho: 1 unidade = ${fmt(f,3)} m. `
+          + `A largura dominante de viga dá ${fmt(dz.pico,1)} cm em ${fmt(dz.conc*100,0)}% dos ${dz.nPares} pares de arestas`
+          + (dz.pilares ? `, e ${dz.pilares} contornos têm tamanho de pilar` : "")
+          + (dz.pavimento ? `, com pavimento de ${fmt(dz.pavimento,0)} m` : "") + ". "
+          + (dz.confiavel
+              ? `A segunda hipótese fica ${fmt(dz.margem*100,0)}% atrás.`
+              : `<b>Margem estreita (${fmt(dz.margem*100,0)}%) — confira o fator antes de usar.</b>`);
+      } else {
+        via = `<b>não foi possível detectar a escala</b> — a prancha não tem cota, marca de pilar nem
+               geometria suficiente para deduzir. Adotado 1 unidade = 1 m; informe o fator à mão.`;
+      }
     }
   } else if(esc==="custom"){ f = num("escalaFator")||1; via = `informada: 1 unidade = ${fmt(f,3)} m`; }
   else { f = parseFloat(esc)||1; via = `1 unidade = ${fmt(f,3)} m`; }
   $("escalaFator").value = +f.toFixed(4);
+
+  // nome de camada que não diz nada: descobre pela função que a geometria cumpre
+  if(!(bruto.lines||[]).some(l=>LAY_VIGA.test(l.lay))){
+    const cl = classificarPorGeometria(bruto, f);
+    const novas = [];
+    if(cl.viga){ CAMADAS.viga = [...new Set(CAMADAS.viga.concat(cl.viga))]; novas.push(`viga em "${cl.viga}"`); }
+    if(cl.pilar){ CAMADAS.pilar = [...new Set(CAMADAS.pilar.concat(cl.pilar))]; novas.push(`pilar em "${cl.pilar}"`); }
+    if(novas.length){ recompilarCamadas(); mostrarCamadas();
+      via += ` Camadas reconhecidas pela geometria: ${novas.join(" e ")}.`; }
+  }
 
   const g = escalarGeo(bruto, f);
   const bb = bboxPlano(g.txts);
