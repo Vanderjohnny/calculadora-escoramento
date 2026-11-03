@@ -73,17 +73,32 @@ leva escora — por onde a obra começa — e a seta de subir percorre o prédio
 construído. A planta 2D e o 3D mostram sempre o mesmo pavimento, com as mesmas caixas de peça
 (laje, vigas, pilares, placas, barrotes, longarinas, escoras).
 
-No 3D aparecem **dois pavimentos de cada vez**: o que está sendo concretado e o que lhe serve de
-apoio, que são os dois que carregam ao mesmo tempo. A caixa **o prédio inteiro** abre todos.
+O desenho mostra **um pavimento de cada vez**, com o seu escoramento. A caixa **o prédio inteiro**
+abre todos de uma vez, para ver a obra montada.
 
 Logo abaixo do desenho, uma tira mostra o que está na tela: área de fôrma, metros de viga, apoios,
-placas, dias de montagem e desmontagem, e o custo — serviço, equipamento e consumível. Na planta
-é o pavimento desenhado; no 3D, o par.
+placas, dias de montagem e desmontagem, e o custo — serviço, equipamento e consumível. Na gaveta
+do orçamento, o mesmo custo vem **discriminado linha a linha por pavimento**, com o R$/m² de cada
+um: é onde se vê que o pavimento de transição custa o dobro do tipo, coisa que a média esconde.
 
 O desenho é leve porque a laje sai do contorno do pavimento, não de um retângulo do tamanho da
-janela, e porque com três pavimentos ou mais a escora vira um retângulo de frente para a câmera e
-o que fica debaixo da laje (placas, barrotes, longarinas) sai do desenho. A torre de 21 pavimentos
-do exemplo dá 9,5 mil faces; dois pavimentos tipo, 4,3 mil.
+janela de desenho, e porque no modo prédio inteiro a escora vira um retângulo de frente para a
+câmera e o que fica debaixo da laje (placas, barrotes, longarinas) sai do desenho. Um pavimento
+tipo dá 2 mil faces; a torre de 20 pavimentos do exemplo, 8,7 mil.
+
+## O que não se escora
+
+Fundação não é pavimento: radier, blocos, sapatas, baldrames e tubulões são concretados contra o
+solo e contra a fôrma lateral, nunca sobre escora — o app os reconhece pelo nome e os tira da lista.
+
+Do que sobra, **o piso mais baixo também não leva escora**: é o térreo, concretado sobre o terreno.
+O primeiro pavimento escorado é o que vem acima dele. Quando há subsolo, o subsolo é que assenta no
+solo e o térreo passa a ser escorado — a regra sai sozinha, porque é sempre o mais baixo que fica
+de fora.
+
+Se esse piso mais baixo for laje sobre subsolo ou sobre vazio, e não sobre terreno, a caixa
+**escorar também o piso mais baixo**, na gaveta do projeto, o traz para o cálculo. Vale conferir
+quando o modelo não traz laje no térreo: aí o app toma o pavimento seguinte como o do solo.
 
 O nível mais baixo do modelo fica de fora: ele apoia no solo, não em escora.
 

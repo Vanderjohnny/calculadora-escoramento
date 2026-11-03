@@ -239,9 +239,6 @@ footer.sheet b{color:var(--ink-2)}
       <div class="g">
         <button id="geral3">vista geral</button>
         <button id="dentro3">entrar no modelo</button>
-        <label class="chk">lente <input type="range" id="fov3" min="25" max="95" value="55" style="width:72px" title="abertura da lente"></label>
-        <label class="chk">recorte <input type="number" id="rec3" value="60" step="2" min="4" max="120"
-          style="width:60px;padding:3px 5px;font-size:11.5px" title="lado da janela em metros; menor = mais leve"> m</label>
         <span id="n3d" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)"></span>
       </div>
     </div>
@@ -558,7 +555,7 @@ const PRECOS = {
   cabo:     {venda:12,  aluguel:0,    rot:"Cabo de aço (m)"}
 };
 const ORC = {modo:"comparar", nPav:18, ciclo:15, jogos:2, frete:2800, viagens:4,
-             montagem:14, desmontagem:7, reposicao:8, impostos:0};
+             montagem:14, desmontagem:7, reposicao:8, impostos:0, baseEscorada:false};
 /* --- Tempo ------------------------------------------------------------
    Produtividade em m² de fôrma por homem-hora. VALORES DE PARTIDA, como os
    preços: variam com a equipe, o sistema e a repetição do pavimento. Os
@@ -2237,12 +2234,12 @@ function gerarLayout(cfg, rGov, rVigaGov){
    =================================================================== */
 // O que se vê é sempre o pavimento sendo concretado e o que lhe serve de
 // apoio: são os dois que carregam ao mesmo tempo. "tudo" abre o prédio todo.
-const V3 = {modo:false, recorte:60, cx:null, cy:null, topo:0, tudo:false, simples:false};
+const V3 = {modo:false, cx:null, cy:null, topo:0, tudo:false, simples:false};
 function faixaPav(R){
   if(!R || !R.bons.length) return [0,0];
   if(V3.tudo) return [0, R.bons.length-1];
   const t = Math.max(0, Math.min(V3.topo, R.bons.length-1));
-  return [Math.max(0, t-1), t];
+  return [t, t];                       // um pavimento por vez
 }
 
 // Caixa alinhada aos eixos: 6 faces com vértices em ordem anti-horária vista de fora.
@@ -2340,9 +2337,10 @@ function gerar3D(cfg, layout, rGov){
   const M = GEO.mask, bb = M.bb;
   // o centro do recorte cai no centro de massa da laje, não da caixa:
   // a caixa inclui a margem e o vazio central, e o recorte caía fora do pavimento
-  if(V3.cx===null){ V3.cx = M.cxm; V3.cy = M.cym; }
-  const r = Math.max(2, V3.recorte)/2;
-  const R = {x0:V3.cx-r, x1:V3.cx+r, y0:V3.cy-r, y1:V3.cy+r};
+  if(V3.cx===null){ V3.cx = M.cxm; V3.cy = M.cym; }     // pivô da órbita
+  // O pavimento inteiro entra no desenho. A janela de recorte existia para
+  // segurar o peso; com um andar por vez e a laje leve, ela só escondia coisa.
+  const R = {x0:bb.x0-1, x1:bb.x1+1, y0:bb.y0-1, y1:bb.y1+1};
   const dentro = (x,y) => x>=R.x0 && x<=R.x1 && y>=R.y0 && y<=R.y1;
   const corta = s => {   // recorta um segmento na janela
     const [a,b]=s;
@@ -3043,6 +3041,8 @@ function render(){
   $("cQuant").textContent = `${fmt(GEO&&GEO.mask?nDes:nTab,0)} apoios`;
   if($("pProj")){
     $("pProj").innerHTML = paneProjeto(cfg);
+    if($("pBase")) $("pBase").addEventListener("change", ()=>{
+      ORC.baseEscorada = $("pBase").checked; V3.topo = 0; render(); });
     $("cProj").textContent = RP
       ? `${RP.nPav} pavimentos · ${fmt(RP.areaTot,0)} m² · ${fmt(RP.escTot,0)} apoios · ${fmt(RP.prazo,0)} dias`
       : "só com IFC";
@@ -3301,6 +3301,39 @@ function calcOrcamento(M,cfg){
           totV, totA, mesesEq, pavEq, aluguelTotEq:eqMes*meses};
 }
 
+/* O fechamento acima é da obra inteira. Quem orça precisa ver onde o dinheiro
+   está: o pavimento de transição custa o dobro do tipo, e isso some na média. */
+function orcPorPavimento(){
+  const R = ULT.proj;
+  if(!R || !R.bons.length) return `<div class="note">Importe um <b>IFC</b> para ver o custo
+    discriminado por pavimento. Com a prancha em DXF ou DWG o app conhece um pavimento de cada vez,
+    e o orçamento acima o repete ${fmt(Math.max(1,ORC.nPav),0)} vezes.</div>`;
+  const tot = k => R.bons.reduce((t,l)=>t+k(l), 0);
+  const linha = l => `<tr${R.bons[V3.topo] === l ? ' style="background:var(--accent-soft)"' : ''}>
+    <td><b>${l.P.nome}</b><div style="font-size:10.5px;color:var(--ink-3);font-family:var(--f-num)">${fmt(l.P.cota,2)} m · H ${fmt(l.H,2)} m</div></td>
+    <td class="num">${fmt(l.areaBruta,0)}</td><td class="num">${fmt(l.nEsc+l.nEscV,0)}</td>
+    <td class="num">${fmt(l.nPlacas,0)}</td><td class="num">${fmt(l.t.diaMont+l.t.diaDesm,1)}</td>
+    <td class="num">${BRL(l.custo.serv)}</td><td class="num">${BRL(l.custo.alug)}</td>
+    <td class="num">${BRL(l.custo.cons)}</td><td class="num"><b>${BRL(l.custo.tot)}</b></td>
+    <td class="num">${BRL(l.custo.tot/Math.max(1,l.areaBruta))}</td></tr>`;
+  return `<div class="sub">Discriminado por pavimento</div>
+  <div class="note">O que cabe a cada pavimento: o serviço de montar e desmontar, o aluguel do
+    equipamento no tempo em que fica ali, e o consumível gasto na passagem. <b>Não entra a compra
+    do jogo</b>, que é da obra e aparece no fechamento acima. O pavimento na tela está destacado.</div>
+  <div class="scroll"><table><thead><tr><th>Pavimento</th><th class="num">m² fôrma</th>
+    <th class="num">apoios</th><th class="num">placas</th><th class="num">dias</th>
+    <th class="num">serviço</th><th class="num">equipamento</th><th class="num">consumível</th>
+    <th class="num">total</th><th class="num">R$/m²</th></tr></thead>
+    <tbody>${R.bons.map(linha).join("")}</tbody>
+    <tfoot><tr><th>${R.bons.length} pavimentos</th><th class="num">${fmt(tot(l=>l.areaBruta),0)}</th>
+      <th class="num">${fmt(tot(l=>l.nEsc+l.nEscV),0)}</th><th class="num">${fmt(tot(l=>l.nPlacas),0)}</th>
+      <th class="num">${fmt(tot(l=>l.t.diaMont+l.t.diaDesm),0)}</th>
+      <th class="num">${BRL(tot(l=>l.custo.serv))}</th><th class="num">${BRL(tot(l=>l.custo.alug))}</th>
+      <th class="num">${BRL(tot(l=>l.custo.cons))}</th><th class="num">${BRL(tot(l=>l.custo.tot))}</th>
+      <th class="num">${BRL(tot(l=>l.custo.tot)/Math.max(1,tot(l=>l.areaBruta)))}</th></tr></tfoot>
+  </table></div>`;
+}
+
 function montarOrcamentoUI(){
   const n = (id,v,st,t) => `<input type="number" id="${id}" value="${v}" step="${st}" title="${t||""}"
     style="width:100%;padding:4px 6px;font-size:12px">`;
@@ -3353,7 +3386,8 @@ function montarOrcamentoUI(){
 
     <div class="sub">Fechamento</div>
     <div class="scroll"><table><tbody id="oTot"></tbody></table></div>
-    <div class="note" id="oEquil">—</div>`;
+    <div class="note" id="oEquil">—</div>
+    <div id="oPav"></div>`;
   const bind = (id,k,f)=>{ $(id).addEventListener("input", ()=>{ ORC[k] = f?f($(id).value):(parseFloat($(id).value)||0); render(); }); };
   bind("oPav","nPav"); bind("oCiclo","ciclo"); bind("oJogos","jogos"); bind("oFrete","frete");
   bind("oViagens","viagens"); bind("oMont","montagem"); bind("oDesm","desmontagem");
@@ -3411,6 +3445,8 @@ function atualizarOrcamento(M,cfg){
       <td class="num">${mV?BRL(o.totV/(o.area*o.nPav)):"—"}</td>
       <td class="num">${mA?BRL(o.totA/(o.area*o.nPav)):"—"}</td>
       <td style="text-align:left;font-size:11.5px;color:var(--ink-3)">${fmt(o.area,0)} m² por pavimento</td></tr>`;
+
+  $("oPav").innerHTML = orcPorPavimento();
 
   const dif = o.totV - o.totA;
   $("oEquil").innerHTML = o.eqMes<=0
@@ -4008,18 +4044,25 @@ function elsDoPav(P){
 }
 
 // O IFC dá a cota de cada pavimento; o apoio da escora é o pavimento de baixo.
+// Fundação não é pavimento: radier, blocos, sapatas e baldrames são
+// concretados contra o solo e contra a forma lateral, nunca sobre escora.
+const FUNDACAO = /funda|radier|bloco de coroamento|^blocos?|sapata|estaca|baldrame|t[úu]bul/i;
 function montarPavs(r){
-  const out = [];
-  r.andares.forEach((A,i)=>{
+  const brutos = [];
+  r.andares.forEach(A=>{
+    if(FUNDACAO.test(A.nome)) return;
     const g = prepararIFC(A, 0.10);
     if(!g || !g.panos.length) return;
-    // sem pavimento abaixo não há de onde escorar, e a altura seria inventada
-    const base = i > 0 ? r.andares[i-1].cota : A.cota - 3;
-    const P = {A, nome:A.nome, cota:A.cota, base, pd:A.cota-base, geo:g, semBase:i === 0};
-    P.els = elsDoPav(P);
-    out.push(P);
+    brutos.push({A, nome:A.nome, cota:A.cota, geo:g});
   });
-  return out;
+  // O mais baixo que sobrou é o piso que assenta no solo — térreo, ou o
+  // subsolo quando existe. Esse não leva escora; o de cima dele, sim.
+  return brutos.map((P,i)=>{
+    const base = i > 0 ? brutos[i-1].cota : P.cota - 3;
+    const Q = Object.assign(P, {base, pd:P.cota-base, semBase:i === 0});
+    Q.els = elsDoPav(Q);
+    return Q;
+  });
 }
 
 // roda fn com o pavimento no lugar do global, porque o cálculo todo lê GEO e ELS
@@ -4050,7 +4093,7 @@ function temposDoPav(area, cfg){
 
 function calcProjeto(cfg){
   const linhas = PAVS.map(P=>comPav(P, ()=>{
-    if(P.semBase) return {P, semBase:true};
+    if(P.semBase && !ORC.baseEscorada) return {P, semBase:true};
     const c = cfgDoPav(cfg, P);
     const lajes = ELS.filter(e=>e.t.startsWith("laje")).map(e=>calcLaje(e,c));
     const vigas = ELS.filter(e=>e.t==="viga").map(e=>calcViga(e,c));
@@ -4069,6 +4112,7 @@ function calcProjeto(cfg){
   }));
 
   const bons = linhas.filter(l=>!l.vazio && !l.semBase);
+  bons.forEach(l=>{ if(l.P.semBase) l.baseSuposta = true; });
   const jogos = Math.max(1, ORC.jogos), reuso = Math.max(1, num("reusoComp") || 10);
   // Equipamento: um jogo tem de servir o pior pavimento, porque é o mesmo
   // jogo que sobe. Consumível é diferente: gasta-se e se repõe pelo total.
@@ -4157,7 +4201,8 @@ function paneProjeto(cfg){
   const linha = (l,i) => {
     if(l.vazio) return `<tr style="opacity:.5"><td>${l.P.nome}</td><td colspan="11">sem pano de laje</td></tr>`;
     if(l.semBase) return `<tr style="opacity:.6"><td>${l.P.nome}</td><td class="num">${fmt(l.P.cota,2)}</td>
-      <td colspan="10">é o nível mais baixo do modelo — apoia no solo, não em escora, e fica fora do cálculo</td></tr>`;
+      <td colspan="10">é o piso mais baixo com laje no modelo — concretado contra o solo, não sobre escora,
+      e por isso fora do cálculo</td></tr>`;
     return `<tr${i===iPav?' style="background:var(--sel,rgba(127,127,127,.12))"':''}>
       <td><b>${l.P.nome}</b>${i===iPav?' <span class="pill ok">na tela</span>':''}</td>
       <td class="num">${fmt(l.P.cota,2)}</td><td class="num">${fmt(l.P.pd,2)}</td>
@@ -4180,7 +4225,12 @@ function paneProjeto(cfg){
     Cada pavimento foi calculado com a sua própria cota e pé-direito, e com a configuração
     de materiais que está na tela.
     ${R.linhas.length > R.bons.length ? `<br>${R.linhas.length-R.bons.length} nível(is) de fora:
-      o mais baixo do modelo, que apoia no solo, e o que não tem pano de laje.` : ""}</div>
+      o piso mais baixo com laje, concretado contra o solo, e o que não tem pano de laje.
+      Fundação — radier, blocos, sapatas, baldrames — nem entra na lista.` : ""}
+    <br><label class="chk" style="font-size:12px;margin-top:4px"><input type="checkbox" id="pBase"${ORC.baseEscorada?" checked":""}>
+      escorar também o piso mais baixo</label>
+    <span style="font-size:11.5px;color:var(--ink-3)"> — marque se ele for laje sobre subsolo ou sobre vazio,
+      e não sobre o terreno. Como não há pavimento abaixo dele no modelo, o pé-direito de escora é suposto em 3,00 m.</span></div>
 
   <div class="scroll"><table><thead><tr>
     <th>Pavimento</th><th class="num">cota (m)</th><th class="num">pé-dir.</th><th class="num">H escora</th>
@@ -4682,8 +4732,7 @@ $("toCorte").onclick = ()=>modoCorte(true);
 $("corteTo2d").onclick = ()=>modoCorte(false);
 $("geral3").onclick = ()=>{ vistaGeral(); render(); };
 $("dentro3").onclick = ()=>{ entrarNoModelo(); render(); };
-$("fov3").addEventListener("input", ()=>{ CAM.fov = +val("fov3"); render(); });
-$("rec3").addEventListener("input", ()=>{ V3.recorte = Math.max(4, num("rec3")); render(); });
+
 // Barra do pavimento: o nome do que está sendo concretado, o que lhe serve
 // de apoio, e o orçamento dos dois que estão na tela.
 function fillPav3(){
@@ -4694,7 +4743,10 @@ function fillPav3(){
   if(!mostra) return;
   V3.topo = Math.max(0, Math.min(V3.topo, R.bons.length-1));
   const [de, ate] = faixaPav(R);
-  const alvo = R.bons[V3.topo], apoio = V3.topo > 0 ? R.bons[V3.topo-1] : null;
+  const alvo = R.bons[V3.topo];
+  // o pavimento de apoio pode não estar na lista dos escorados — o primeiro
+  // deles apoia justamente no térreo, que é concretado sobre o solo
+  const apoio = PAVS.find(P=>Math.abs(P.cota - alvo.P.base) < 0.02);
   $("pavTudo").checked = V3.tudo;
   $("pavTudo").parentNode.title = V3.tudo
     ? "pesado de girar: com o prédio todo a tela desenha dezenas de milhares de faces"
@@ -4702,16 +4754,13 @@ function fillPav3(){
   $("pavNome").textContent = V3.tudo ? "O prédio inteiro" : alvo.P.nome;
   $("pavSob").textContent = V3.tudo
     ? `${R.bons.length} pavimentos · ${fmt(R.bons[R.bons.length-1].P.cota - R.bons[0].P.base, 1)} m de altura`
-    : (apoio ? `concretando a ${fmt(alvo.P.cota,2)} m · escorado sobre ${apoio.P.nome}`
-             : `concretando a ${fmt(alvo.P.cota,2)} m · apoio no pavimento de baixo`);
+    : (apoio ? `concretando a ${fmt(alvo.P.cota,2)} m · escorado sobre ${apoio.nome}`
+             : `concretando a ${fmt(alvo.P.cota,2)} m · pé-direito de ${fmt(alvo.P.pd,2)} m`);
   $("pavSobe").disabled = V3.tudo || V3.topo >= R.bons.length-1;
   $("pavDesce").disabled = V3.tudo || V3.topo <= 0;
   $("pavConta").textContent = `${V3.topo+1} de ${R.bons.length}`;
 
-  // a tira diz respeito ao que está desenhado: a planta é de um pavimento só,
-  // o 3D mostra o par que carrega junto
-  const [od, oa] = V3.modo ? [de, ate] : [V3.topo, V3.topo];
-  const mostrados = R.bons.slice(od, oa+1);
+  const mostrados = R.bons.slice(de, ate+1);
   const soma = k => mostrados.reduce((t,l)=>t + k(l), 0);
   const cel = (rot,v,sub) => `<div class="kpi" style="padding:8px 12px">
     <div class="k">${rot}</div><div class="v" style="font-size:20px">${v}</div>
