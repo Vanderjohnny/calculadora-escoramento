@@ -1,8 +1,9 @@
 # Calculadora de Escoramento — NBR 15696
 
 App web estático. Projeto e verificação de fôrmas e escoramentos conforme ABNT NBR 15696:
-lê a planta de formas em DXF, lança a grade de escoramento sobre o desenho, mostra a montagem
-em 3D e exporta o jogo de pranchas cotadas em PDF e a grade de volta em DXF.
+lê a planta de formas em DXF ou o modelo estrutural em IFC, lança a grade de escoramento sobre o
+desenho, mostra a montagem em 3D e exporta o jogo de pranchas cotadas em PDF e a grade de volta
+em DXF. Com o IFC o cálculo é do prédio inteiro, pavimento a pavimento.
 
 ## Usar
 
@@ -23,6 +24,30 @@ seção dos pilares com o contorno deles, delimita o pavimento e lança a grade.
 
 As camadas são configuráveis: o padrão é o do AltoQi Eberick (`FO-Vigas`, `FO-Pilares`,
 `FO-Aberturas`), e ao importar o app lista o que achou e deixa remapear.
+
+## Importar o modelo em IFC
+
+Soltar o arquivo `.ifc` no mesmo campo. O app lê a estrutura espacial (`IfcBuildingStorey`) e
+separa o cálculo por pavimento, com a cota de cada um. Daí saem, medidos no próprio sólido:
+
+- **laje** — contorno, área e espessura, com o furo de shaft e caixa de escada descontado;
+  o tipo (maciça, nervurada, treliçada) vem da propriedade do modelo quando ela existe;
+- **viga** — eixo, largura e altura do perfil da extrusão, sem pareamento de arestas;
+- **pilar e parede** — seção e altura, para a fôrma vertical do Anexo D;
+- **pé-direito** — diferença de cota entre o pavimento e o de baixo.
+
+Testado com exportação do AltoQi Eberick e do Revit, esquema IFC4 e IFC2x3, em milímetro,
+centímetro, metro ou pé. Geometria por extrusão (`IfcExtrudedAreaSolid`), por casca de faces
+(`IfcFacetedBrep`), por malha (`IfcPolygonalFaceSet`), por item mapeado (`IfcMappedItem`) e com
+recorte booleano (`IfcBooleanClippingResult`).
+
+A gaveta **Projeto completo** calcula todos os pavimentos com a configuração que está na tela e
+mostra, por pavimento, área de fôrma, metros de viga, grade, apoios, placas e aproveitamento —
+e, para o projeto, o equipamento a mobilizar. Esse equipamento sai do **pico** entre os
+pavimentos multiplicado pelos jogos simultâneos, e não da soma: o jogo que sobe é o mesmo, e tem
+de atender o pavimento mais exigente. O consumível vem da soma dividida pelo reaproveitamento.
+
+O nível mais baixo do modelo fica de fora: ele apoia no solo, não em escora.
 
 ## Exportar
 

@@ -208,8 +208,10 @@ footer.sheet b{color:var(--ink-2)}
     </select></div>
     <div><label for="escalaFator">1 unidade vale <span class="u">(m)</span></label>
       <input type="number" id="escalaFator" value="1" step="0.001"></div>
-    <div><label>Importar prancha</label>
-      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
+    <div id="boxPav" hidden><label for="pavSel">Pavimento do modelo</label>
+      <select id="pavSel"></select></div>
+    <div><label>Importar prancha ou modelo</label>
+      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.ifc,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -289,6 +291,7 @@ footer.sheet b{color:var(--ink-2)}
   <details class="gav"><summary>Vigas <span class="c" id="cVigas"></span></summary><div class="gav-body" id="pVigas"></div></details>
   <details class="gav"><summary>Fôrmas verticais — Anexo D <span class="c" id="cVert"></span></summary><div class="gav-body" id="pVert"></div></details>
   <details class="gav"><summary>Estabilidade horizontal <span class="c" id="cEstab"></span></summary><div class="gav-body" id="pEstab"></div></details>
+  <details class="gav" id="gavProj"><summary>Projeto completo — todos os pavimentos <span class="c" id="cProj"></span></summary><div class="gav-body" id="pProj"></div></details>
   <details class="gav"><summary>Quantitativo <span class="c" id="cQuant"></span></summary><div class="gav-body" id="pQuant"></div></details>
   <details class="gav"><summary>Aproveitamento das chapas <span class="c" id="cCorte"></span></summary><div class="gav-body" id="pCorte"></div></details>
   <details class="gav"><summary>Orçamento — venda ou aluguel <span class="c" id="cOrc"></span></summary><div class="gav-body" id="pOrc"></div></details>
@@ -614,6 +617,8 @@ const PRESETS = {
    =================================================================== */
 let ELS = [];
 let GEO = null;            // geometria importada do DXF
+let PAVS = [];             // projeto inteiro, quando a importação foi de IFC
+let iPav = -1;             // qual pavimento está na tela
 const $ = id => document.getElementById(id);
 const num = id => { const el=$(id); return el ? (parseFloat(el.value)||0) : 0; };
 const val = id => { const el=$(id); return el ? el.value : ""; };
@@ -847,6 +852,665 @@ function mapearCamadas(bruto){
 const LARG_USUAL = [10,12,14,15,17,19,20,25,30];
 const largurasViga = lista => [...new Set(((lista||[]).filter(e=>e.t==="viga").map(e=>e.b))
   .concat(LARG_USUAL))].filter(b=>b>0);
+
+/* ===================================================================
+   IFC — o prédio inteiro, não uma prancha
+   A prancha dá um pavimento, e a altura da viga só se estiver escrita.
+   O IFC traz o modelo: cada pavimento com a sua cota, a seção de cada
+   viga medida no sólido e a espessura de cada laje. Daí sai o
+   escoramento de todos os pavimentos e o reaproveitamento entre eles.
+   =================================================================== */
+
+/* --- Texto -------------------------------------------------------------
+   A ISO 10303-21 escapa acento de três jeitos, e o arquivo costuma vir
+   em latin-1. Nome de pavimento com acento errado vira carimbo errado. */
+function textoIFC(s){
+  if(!s) return "";
+  s = s.trim();
+  if(s[0] !== "'") return s === "$" || s === "*" ? "" : s;
+  s = s.slice(1,-1);
+  return s.replace(/\\X2\\((?:[0-9A-F]{4})+)\\X0\\/gi, (_,h)=>
+             h.match(/.{4}/g).map(c=>String.fromCharCode(parseInt(c,16))).join(""))
+          .replace(/\\X4\\((?:[0-9A-F]{8})+)\\X0\\/gi, (_,h)=>
+             h.match(/.{8}/g).map(c=>String.fromCodePoint(parseInt(c,16))).join(""))
+          .replace(/\\X\\([0-9A-F]{2})/gi, (_,h)=>String.fromCharCode(parseInt(h,16)))
+          .replace(/\\S\\(.)/g, (_,c)=>String.fromCharCode(c.charCodeAt(0)+128))
+          .replace(/''/g, "'").replace(/\\\\/g, "\\");
+}
+
+/* --- Entidades ---------------------------------------------------------
+   Varredura caractere a caractere em vez de regex: o argumento pode ter
+   parêntese e vírgula dentro de string, e a linha pode quebrar no meio. */
+function entidadesIFC(txt){
+  const E = new Map(), n = txt.length;
+  let i = Math.max(0, txt.indexOf("DATA;"));
+  while(i < n){
+    const h = txt.indexOf("#", i);
+    if(h < 0) break;
+    let j = h+1, id = 0, dig = 0;
+    while(j < n){ const c = txt.charCodeAt(j); if(c<48||c>57) break; id = id*10 + (c-48); j++; dig++; }
+    if(!dig){ i = h+1; continue; }
+    while(j < n && txt.charCodeAt(j) <= 32) j++;
+    if(txt[j] !== "="){ i = h+1; continue; }
+    j++;
+    while(j < n && txt.charCodeAt(j) <= 32) j++;
+    let k = j;
+    while(k < n && /[A-Za-z0-9_]/.test(txt[k])) k++;
+    const tipo = txt.slice(j,k).toUpperCase();
+    while(k < n && txt[k] !== "(") k++;
+    const a0 = k+1;
+    let d = 0, str = false;
+    for(; k < n; k++){
+      const c = txt[k];
+      if(str){ if(c === "'"){ if(txt[k+1] === "'") k++; else str = false; } continue; }
+      if(c === "'") str = true;
+      else if(c === "(") d++;
+      else if(c === ")"){ if(--d === 0) break; }
+    }
+    if(tipo) E.set(id, {id, tipo, arg:txt.slice(a0,k)});
+    i = k+1;
+  }
+  return E;
+}
+
+const partirIFC = a => {
+  const out = [];
+  let d = 0, str = false, ini = 0;
+  for(let k = 0; k < a.length; k++){
+    const c = a[k];
+    if(str){ if(c === "'"){ if(a[k+1] === "'") k++; else str = false; } continue; }
+    if(c === "'") str = true;
+    else if(c === "(") d++;
+    else if(c === ")") d--;
+    else if(c === "," && !d){ out.push(a.slice(ini,k).trim()); ini = k+1; }
+  }
+  out.push(a.slice(ini).trim());
+  return out;
+};
+
+/* ===================================================================
+   LEITOR
+   =================================================================== */
+function lerIFC(txt){
+  const E = entidadesIFC(txt);
+  const cps = new Map();                                  // campos, sob demanda
+  const C = i => { let v = cps.get(i); if(!v){ v = partirIFC(E.get(i).arg); cps.set(i,v); } return v; };
+  const en = (i,k) => { const e = E.get(i); return e ? C(i)[k] : undefined; };
+  const tipo = i => { const e = E.get(i); return e ? e.tipo : ""; };
+  const rf = s => { if(!s) return 0; const m = /^#(\d+)$/.exec(s.trim()); return m ? +m[1] : 0; };
+  const nu = s => { const v = parseFloat(s); return isFinite(v) ? v : null; };
+  const lst = s => { s = (s||"").trim();
+    return (s.startsWith("(") ? partirIFC(s.slice(1,-1)) : []).filter(x=>x!==""); };
+  const refs = s => lst(s).map(rf).filter(Boolean);
+  const enu = s => (s||"").replace(/^\.|\.$/g,"").toUpperCase();
+
+  // --- unidade de comprimento: o modelo pode estar em mm, cm, m ou pé.
+  // O arquivo às vezes declara várias e usa só a que está na atribuição.
+  let uL = 1, uNome = "m";
+  const PREFIX = {EXA:1e18, PETA:1e15, TERA:1e12, GIGA:1e9, MEGA:1e6, KILO:1e3, HECTO:100, DECA:10,
+                  DECI:0.1, CENTI:0.01, MILLI:1e-3, MICRO:1e-6, NANO:1e-9};
+  for(const [,e] of E){
+    if(e.tipo !== "IFCUNITASSIGNMENT") continue;
+    for(const u of refs(C(e.id)[0])){
+      const t = tipo(u), f = C(u);
+      if(t === "IFCSIUNIT" && enu(f[1]) === "LENGTHUNIT"){
+        uL = PREFIX[enu(f[2])] || 1;
+        uNome = {MILLI:"milímetro", CENTI:"centímetro", DECI:"decímetro", KILO:"quilômetro"}[enu(f[2])] || "metro";
+      } else if(t === "IFCCONVERSIONBASEDUNIT" && enu(f[1]) === "LENGTHUNIT"){
+        const mu = rf(f[3]);                                // IfcMeasureWithUnit
+        if(mu){ const g = C(mu), base = rf(g[1]);
+          let b = 1;
+          if(tipo(base) === "IFCSIUNIT") b = PREFIX[enu(C(base)[2])] || 1;
+          uL = (nu(g[0]) || 1) * b; uNome = textoIFC(f[2]) || "unidade";
+        }
+      }
+    }
+    break;
+  }
+
+  /* --- Colocação ------------------------------------------------------
+     Cada elemento pende de uma corrente de IfcLocalPlacement até o
+     prédio. Sem compor a corrente inteira, a viga do 15º aparece na cota
+     do térreo. O eixo Y sai do produto vetorial, e não do arquivo, para
+     a base ficar sempre destra mesmo com RefDirection torto. */
+  const unit = v => { const m = Math.hypot(v[0],v[1],v[2]) || 1; return [v[0]/m, v[1]/m, v[2]/m]; };
+  const cruz = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  const pto = i => { const v = lst(C(i)[0]).map(nu);
+    return [v[0]||0, v[1]||0, v[2]||0]; };
+  const dir = i => { if(!i) return null; const v = lst(C(i)[0]).map(nu);
+    return [v[0]||0, v[1]||0, v[2]||0]; };
+  const BASE = {o:[0,0,0], x:[1,0,0], y:[0,1,0], z:[0,0,1]};
+
+  function eixo3(i){                                       // IfcAxis2Placement3D
+    if(!i) return BASE;
+    const f = C(i), o = pto(rf(f[0]));
+    let z = dir(rf(f[1])) || [0,0,1], x = dir(rf(f[2])) || null;
+    z = unit(z);
+    if(!x || Math.abs(x[0]*z[0]+x[1]*z[1]+x[2]*z[2]) > 0.9999)
+      x = Math.abs(z[2]) < 0.9 ? cruz([0,0,1],z) : [1,0,0];
+    const d = x[0]*z[0]+x[1]*z[1]+x[2]*z[2];
+    x = unit([x[0]-d*z[0], x[1]-d*z[1], x[2]-d*z[2]]);
+    return {o, x, y:cruz(z,x), z};
+  }
+  function eixo2(i){                                       // IfcAxis2Placement2D
+    if(!i) return {o:[0,0,0], x:[1,0,0], y:[0,1,0], z:[0,0,1]};
+    const f = C(i), o = pto(rf(f[0]));
+    let x = dir(rf(f[1])) || [1,0,0];
+    x = unit([x[0], x[1], 0]);
+    return {o:[o[0], o[1], 0], x, y:[-x[1], x[0], 0], z:[0,0,1]};
+  }
+  const levar = (M,p) => [
+    M.o[0] + p[0]*M.x[0] + p[1]*M.y[0] + (p[2]||0)*M.z[0],
+    M.o[1] + p[0]*M.x[1] + p[1]*M.y[1] + (p[2]||0)*M.z[1],
+    M.o[2] + p[0]*M.x[2] + p[1]*M.y[2] + (p[2]||0)*M.z[2]];
+  const girar = (M,v) => [
+    v[0]*M.x[0] + v[1]*M.y[0] + (v[2]||0)*M.z[0],
+    v[0]*M.x[1] + v[1]*M.y[1] + (v[2]||0)*M.z[1],
+    v[0]*M.x[2] + v[1]*M.y[2] + (v[2]||0)*M.z[2]];
+  const compor = (P,L) => ({o:levar(P,L.o), x:girar(P,L.x), y:girar(P,L.y), z:girar(P,L.z)});
+
+  const memo = new Map();
+  function colocacao(i){
+    if(!i) return BASE;
+    if(memo.has(i)) return memo.get(i);
+    memo.set(i, BASE);                                     // corta corrente circular
+    let M = BASE;
+    const t = tipo(i);
+    if(t === "IFCLOCALPLACEMENT"){
+      const f = C(i), pai = rf(f[0]), loc = eixo3(rf(f[1]));
+      M = pai ? compor(colocacao(pai), loc) : loc;
+    } else if(t === "IFCAXIS2PLACEMENT3D") M = eixo3(i);
+    memo.set(i, M);
+    return M;
+  }
+
+  /* --- Perfis --------------------------------------------------------- */
+  function pontosCurva(i){                                 // polilinha fechada do contorno
+    const t = tipo(i);
+    if(t === "IFCPOLYLINE") return refs(C(i)[0]).map(p=>{ const v = lst(C(p)[0]).map(nu); return [v[0]||0, v[1]||0]; });
+    if(t === "IFCINDEXEDPOLYCURVE"){
+      const pl = rf(C(i)[0]);                              // IfcCartesianPointList2D
+      if(!pl) return [];
+      return lst(C(pl)[0]).map(s=>{ const v = lst(s).map(nu); return [v[0]||0, v[1]||0]; });
+    }
+    if(t === "IFCCOMPOSITECURVE"){
+      const out = [];
+      refs(C(i)[0]).forEach(seg=>{ const g = rf(C(seg)[2]); pontosCurva(g).forEach(p=>out.push(p)); });
+      return out;
+    }
+    if(t === "IFCTRIMMEDCURVE") return pontosCurva(rf(C(i)[0]));
+    return [];
+  }
+  const areaPol = p => { let a = 0;
+    for(let k = 0, n = p.length; k < n; k++){ const q = p[(k+1)%n]; a += p[k][0]*q[1] - q[0]*p[k][1]; }
+    return Math.abs(a)/2; };
+
+  function perfil(i){
+    const t = tipo(i), f = C(i);
+    if(t === "IFCRECTANGLEPROFILEDEF" || t === "IFCROUNDEDRECTANGLEPROFILEDEF")
+      return {k:"ret", pos:eixo2(rf(f[2])), dx:nu(f[3])||0, dy:nu(f[4])||0};
+    if(t === "IFCCIRCLEPROFILEDEF" || t === "IFCCIRCLEHOLLOWPROFILEDEF"){
+      const r = nu(f[3])||0;
+      return {k:"ret", pos:eixo2(rf(f[2])), dx:2*r, dy:2*r, circ:true};
+    }
+    if(t === "IFCISHAPEPROFILEDEF" || t === "IFCTSHAPEPROFILEDEF" || t === "IFCUSHAPEPROFILEDEF")
+      return {k:"ret", pos:eixo2(rf(f[2])), dx:nu(f[3])||0, dy:nu(f[4])||0};
+    if(t === "IFCARBITRARYCLOSEDPROFILEDEF" || t === "IFCARBITRARYPROFILEDEFWITHVOIDS"){
+      const ex = pontosCurva(rf(f[2]));
+      const vz = t === "IFCARBITRARYPROFILEDEFWITHVOIDS" ? refs(f[3]).map(pontosCurva) : [];
+      return ex.length >= 3 ? {k:"pol", pos:BASE, pts:ex, vazios:vz.filter(v=>v.length>=3)} : null;
+    }
+    if(t === "IFCDERIVEDPROFILEDEF"){                      // perfil transformado
+      const p = perfil(rf(f[2]));
+      return p ? {...p} : null;
+    }
+    if(t === "IFCCOMPOSITEPROFILEDEF"){
+      const ps = refs(f[2]).map(perfil).filter(Boolean);
+      return ps[0] || null;
+    }
+    return null;
+  }
+
+  /* --- Sólidos -------------------------------------------------------
+     Só o que estes modelos usam: extrusão, casca de faces e o recorte
+     booleano, de que se aproveita o primeiro operando — o corte tira um
+     canto da viga, não a viga. */
+  function solidos(i, M, out, prof){
+    if(!i || out.length > 400 || (prof||0) > 6) return out;
+    const t = tipo(i), f = C(i);
+    if(t === "IFCEXTRUDEDAREASOLID"){
+      const p = perfil(rf(f[0]));
+      if(!p) return out;
+      const F = compor(M, eixo3(rf(f[1])));
+      const d = dir(rf(f[2])) || [0,0,1];
+      out.push({k:"ext", perfil:p, F, dir:unit(girar(F, d)), prof:nu(f[3])||0});
+    } else if(t === "IFCFACETEDBREP" || t === "IFCADVANCEDBREP" || t === "IFCMANIFOLDSOLIDBREP"){
+      const casca = rf(f[0]);
+      if(casca) out.push({k:"brep", faces:facesDe(casca, M)});
+    } else if(t === "IFCPOLYGONALFACESET"){
+      const pl = rf(f[0]), coord = pl ? lst(C(pl)[0]).map(s=>{ const v = lst(s).map(nu); return [v[0]||0,v[1]||0,v[2]||0]; }) : [];
+      const faces = refs(f[3]).map(ix=>{
+        const idx = lst(C(ix)[0]).map(nu);
+        return {fora:idx.map(n=>levar(M, coord[n-1]||[0,0,0])), dentro:[]};
+      });
+      out.push({k:"brep", faces});
+    } else if(t === "IFCBOOLEANCLIPPINGRESULT" || t === "IFCBOOLEANRESULT"){
+      solidos(rf(f[1]), M, out, (prof||0)+1);
+    } else if(t === "IFCMAPPEDITEM"){
+      const src = rf(f[0]), op = rf(f[1]);
+      if(src){
+        const g = C(src), orig = eixo3(rf(g[0])), rep = rf(g[1]);
+        let T = compor(M, orig);
+        if(op){                                            // operador com escala
+          const h = C(op), ax1 = dir(rf(h[0])), ax2 = dir(rf(h[1])), loc = rf(h[2]), esc = nu(h[3]);
+          const L = eixo3(0), o = loc ? pto(loc) : [0,0,0];
+          const zz = dir(rf(h[4])) || null;
+          const mx = ax1 ? unit(ax1) : [1,0,0], my = ax2 ? unit(ax2) : [0,1,0];
+          const mz = zz ? unit(zz) : cruz(mx,my);
+          const s = esc || 1;
+          T = compor(T, {o, x:[mx[0]*s,mx[1]*s,mx[2]*s], y:[my[0]*s,my[1]*s,my[2]*s], z:[mz[0]*s,mz[1]*s,mz[2]*s]});
+        }
+        if(rep) refs(C(rep)[3]).forEach(it=>solidos(it, T, out, (prof||0)+1));
+      }
+    }
+    return out;
+  }
+  function facesDe(casca, M){
+    const out = [];
+    refs(C(casca)[0]).forEach(fc=>{
+      const bs = refs(C(fc)[0]);
+      let fora = null; const dentro = [];
+      bs.forEach(b=>{
+        const g = C(b), loop = rf(g[0]), orient = enu(g[1]) !== "F";
+        if(tipo(loop) !== "IFCPOLYLOOP") return;
+        let ps = refs(C(loop)[0]).map(p=>levar(M, pto(p)));
+        if(!orient) ps = ps.slice().reverse();
+        if(tipo(b) === "IFCFACEOUTERBOUND" || !fora) fora = ps; else dentro.push(ps);
+      });
+      if(fora && fora.length >= 3) out.push({fora, dentro});
+    });
+    return out;
+  }
+
+  // representação "Body" do elemento, já no mundo
+  function corpo(idEl){
+    const f = C(idEl), rep = rf(f[6]), M = colocacao(rf(f[5]));
+    if(!rep) return [];
+    const out = [];
+    refs(C(rep)[2]).forEach(sr=>{
+      if(tipo(sr) !== "IFCSHAPEREPRESENTATION") return;
+      const g = C(sr), ident = textoIFC(g[1]).toLowerCase();
+      if(ident && !/body|facetation|solid/.test(ident)) return;
+      refs(g[3]).forEach(it=>solidos(it, M, out, 0));
+    });
+    return out;
+  }
+
+  /* --- Medidas do sólido ---------------------------------------------- */
+  function cantosExt(s){                                   // 4 cantos do perfil retangular, no mundo
+    const p = s.perfil, F = compor(s.F, p.pos);
+    const hx = p.dx/2, hy = p.dy/2;
+    return {wx:unit(girar(F,[1,0,0])), wy:unit(girar(F,[0,1,0])), o:levar(F,[0,0,0]), hx, hy, F};
+  }
+  function caixa(sols){
+    let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    const vai = p => { if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1];
+                       if(p[2]<z0)z0=p[2]; if(p[2]>z1)z1=p[2]; };
+    sols.forEach(s=>{
+      if(s.k === "brep") s.faces.forEach(f=>{ f.fora.forEach(vai); f.dentro.forEach(l=>l.forEach(vai)); });
+      else {
+        const p = s.perfil, F = compor(s.F, p.pos);
+        const base = p.k === "ret" ? [[-p.dx/2,-p.dy/2],[p.dx/2,-p.dy/2],[p.dx/2,p.dy/2],[-p.dx/2,p.dy/2]] : p.pts;
+        base.forEach(q=>{ const a = levar(F,[q[0],q[1],0]); vai(a);
+          vai([a[0]+s.dir[0]*s.prof, a[1]+s.dir[1]*s.prof, a[2]+s.dir[2]*s.prof]); });
+      }
+    });
+    return isFinite(x0) ? {x0,y0,z0,x1,y1,z1} : null;
+  }
+  // Planta do sólido: contorno em XY. Para a extrusão vertical é o próprio
+  // perfil; para a casca de faces são as faces de cima, que é onde a laje
+  // encosta na fôrma.
+  function plantaDe(sols){
+    const pols = [];
+    sols.forEach(s=>{
+      if(s.k === "ext"){
+        const p = s.perfil, F = compor(s.F, p.pos);
+        const base = p.k === "ret" ? [[-p.dx/2,-p.dy/2],[p.dx/2,-p.dy/2],[p.dx/2,p.dy/2],[-p.dx/2,p.dy/2]] : p.pts;
+        const vert = Math.abs(s.dir[2]) > 0.9;
+        const topo = base.map(q=>levar(F,[q[0],q[1],0]));
+        if(vert) pols.push({pts:topo.map(a=>[a[0],a[1]]),
+                            vazios:(p.vazios||[]).map(v=>v.map(q=>{ const a = levar(F,[q[0],q[1],0]); return [a[0],a[1]]; }))});
+        else {                                             // extrusão horizontal: a sombra é o retângulo varrido
+          const q0 = topo, q1 = topo.map(a=>[a[0]+s.dir[0]*s.prof, a[1]+s.dir[1]*s.prof]);
+          const todos = q0.map(a=>[a[0],a[1]]).concat(q1);
+          pols.push({pts:cascaConvexa(todos), vazios:[]});
+        }
+      } else {
+        const cx = caixa([s]); if(!cx) return;
+        s.faces.forEach(f=>{
+          if(!f.fora.every(p=>Math.abs(p[2]-cx.z1) < 1e-6)) return;
+          pols.push({pts:f.fora.map(p=>[p[0],p[1]]),
+                     vazios:f.dentro.filter(l=>l.every(p=>Math.abs(p[2]-cx.z1) < 1e-6)).map(l=>l.map(p=>[p[0],p[1]]))});
+        });
+      }
+    });
+    return pols;
+  }
+  function cascaConvexa(ps){
+    if(ps.length < 3) return ps;
+    const p = ps.slice().sort((a,b)=>a[0]-b[0] || a[1]-b[1]);
+    const cr = (o,a,b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+    const metade = lst => { const h = [];
+      for(const q of lst){ while(h.length >= 2 && cr(h[h.length-2], h[h.length-1], q) <= 0) h.pop(); h.push(q); }
+      return h; };
+    const lo = metade(p), hi = metade(p.slice().reverse());
+    return lo.slice(0,-1).concat(hi.slice(0,-1));
+  }
+
+  /* --- Propriedades --------------------------------------------------
+     O Eberick escreve 'Tipo', 'Espessura' e 'Elemento' no IFC. Ler isso
+     é melhor que adivinhar maciça ou nervurada pela geometria. */
+  const props = new Map();
+  for(const [,e] of E){
+    if(e.tipo !== "IFCRELDEFINESBYPROPERTIES") continue;
+    const f = C(e.id), def = rf(f[5]);
+    if(!def || tipo(def) !== "IFCPROPERTYSET") continue;
+    const kv = {};
+    refs(C(def)[4]).forEach(p=>{
+      if(tipo(p) !== "IFCPROPERTYSINGLEVALUE") return;
+      const g = C(p), nome = textoIFC(g[0]);
+      const v = (g[2]||"").trim();
+      const m = /^[A-Z]+\((.*)\)$/i.exec(v);
+      kv[nome] = m ? textoIFC(m[1]) : textoIFC(v);
+    });
+    refs(f[4]).forEach(o=>{
+      const atual = props.get(o) || {};
+      props.set(o, Object.assign(atual, kv));
+    });
+  }
+
+  /* --- Pavimentos ----------------------------------------------------- */
+  const andares = [];
+  for(const [,e] of E){
+    if(e.tipo !== "IFCBUILDINGSTOREY") continue;
+    const f = C(e.id);
+    const cota = (nu(f[9]) != null ? nu(f[9])*uL : colocacao(rf(f[5])).o[2]*uL);
+    andares.push({id:e.id, nome:textoIFC(f[2]) || textoIFC(f[7]) || `Pav ${andares.length+1}`, cota, itens:[]});
+  }
+  andares.sort((a,b)=>a.cota-b.cota);
+  const porId = new Map(andares.map(a=>[a.id,a]));
+  // O Revit costuma exportar dois níveis por pavimento, o de osso e o acabado,
+  // a poucos centímetros um do outro. São o mesmo pavimento: se ficarem
+  // separados, o pé-direito de um deles vira 6 cm e a área conta duas vezes.
+  const JUNTO = 1.0;
+
+  // IfcRelContainedInSpatialStructure liga elemento a pavimento; o que
+  // estiver agregado (IfcRelAggregates) entra junto com o pai.
+  const dono = new Map();
+  for(const [,e] of E){
+    if(e.tipo !== "IFCRELCONTAINEDINSPATIALSTRUCTURE") continue;
+    const f = C(e.id), est = rf(f[5]);
+    if(!porId.has(est)) continue;
+    refs(f[4]).forEach(o=>dono.set(o, est));
+  }
+  for(const [,e] of E){
+    if(e.tipo !== "IFCRELAGGREGATES") continue;
+    const f = C(e.id), pai = rf(f[4]);
+    if(!dono.has(pai)) continue;
+    refs(f[5]).forEach(o=>{ if(!dono.has(o)) dono.set(o, dono.get(pai)); });
+  }
+
+  // Furo de laje não se escora: a caixa de escada e o shaft saem da área.
+  // O IFC guarda isso em IfcRelVoidsElement, apontando para o furo.
+  const furos = new Map();
+  for(const [,e] of E){
+    if(e.tipo !== "IFCRELVOIDSELEMENT") continue;
+    const f = C(e.id), alvo = rf(f[4]), furo = rf(f[5]);
+    if(!alvo || !furo) continue;
+    const l = furos.get(alvo) || []; l.push(furo); furos.set(alvo, l);
+  }
+
+  const ALVO = {IFCSLAB:"laje", IFCSLABSTANDARDCASE:"laje", IFCSLABELEMENTEDCASE:"laje", IFCROOF:"laje",
+                IFCBEAM:"viga", IFCBEAMSTANDARDCASE:"viga",
+                IFCCOLUMN:"pilar", IFCCOLUMNSTANDARDCASE:"pilar",
+                IFCWALL:"parede", IFCWALLSTANDARDCASE:"parede", IFCWALLELEMENTEDCASE:"parede"};
+  const fora = {};                                         // o que ficou de fora, para avisar
+  for(const [,e] of E){
+    const cls = ALVO[e.tipo];
+    if(!cls){ if(/^IFC(FOOTING|PILE|STAIR|RAMP|MEMBER|PLATE|COVERING|RAILING|CURTAINWALL)/.test(e.tipo))
+                fora[e.tipo] = (fora[e.tipo]||0)+1;
+              continue; }
+    const est = dono.get(e.id);
+    if(!est){ fora["sem pavimento"] = (fora["sem pavimento"]||0)+1; continue; }
+    porId.get(est).itens.push({id:e.id, cls, nome:textoIFC(C(e.id)[2]), tipoIfc:e.tipo,
+                               pre:enu(C(e.id)[8] || "")});
+  }
+
+  /* --- Medir cada elemento -------------------------------------------- */
+  const m = v => v*uL;                                     // para metro
+  andares.forEach((A,iA)=>{
+    const lajes = [], vigas = [], pilares = [], paredes = [];
+    A.itens.forEach(it=>{
+      const sols = corpo(it.id);
+      if(!sols.length) return;
+      const cx = caixa(sols);
+      if(!cx) return;
+      const pr = props.get(it.id) || {};
+      if(it.cls === "laje"){
+        if(/BASESLAB|LANDING/.test(it.pre)) return;         // radier e patamar não se escoram como pavimento
+        const pols = plantaDe(sols);
+        let area = 0;
+        pols.forEach(p=>{ area += areaPol(p.pts) - p.vazios.reduce((s,v)=>s+areaPol(v), 0); });
+        // o furo atravessa a laje: o que ele ocupa em planta sai da área
+        const abert = [];
+        (furos.get(it.id) || []).forEach(fu=>{
+          plantaDe(corpo(fu)).forEach(p=>{
+            const a = areaPol(p.pts);
+            if(a <= 0) return;
+            area -= a; abert.push(p.pts);
+          });
+        });
+        area *= uL*uL;
+        const espPr = parseFloat((pr["Espessura"]||"").replace(",","."));
+        const esp = isFinite(espPr) && espPr > 0 ? m(espPr)
+                  : Math.max(0.05, m(cx.z1-cx.z0));
+        const tp = (pr["Tipo"]||"").toLowerCase();
+        if(area < 0.5) return;
+        lajes.push({nome:it.nome, area, esp,
+                    tipo: /nervur/.test(tp) ? "laje-nerv" : /trelic|treli|pr[eé]/.test(tp) ? "laje-pre" : "laje-mac",
+                    pols:pols.map(p=>({pts:p.pts.map(q=>[m(q[0]),m(q[1])]),
+                                       vazios:p.vazios.map(v=>v.map(q=>[m(q[0]),m(q[1])]))})),
+                    abert:abert.map(v=>v.map(q=>[m(q[0]),m(q[1])])),
+                    z:m(cx.z1)});
+      } else if(it.cls === "viga"){
+        // o eixo da viga é a reta da extrusão; largura e altura saem das
+        // direções do perfil — a que aponta para cima é a altura
+        const ext = sols.filter(s=>s.k === "ext" && s.perfil.k === "ret" && Math.abs(s.dir[2]) < 0.7);
+        if(ext.length){
+          ext.forEach(s=>{
+            const g = cantosExt(s);
+            const vert = Math.abs(g.wy[2]) > Math.abs(g.wx[2]);
+            const b = m(vert ? s.perfil.dx : s.perfil.dy);
+            const h = m(vert ? s.perfil.dy : s.perfil.dx);
+            const a0 = g.o, a1 = [a0[0]+s.dir[0]*s.prof, a0[1]+s.dir[1]*s.prof, a0[2]+s.dir[2]*s.prof];
+            const comp = m(s.prof);
+            if(comp < 0.05 || b <= 0 || h <= 0) return;
+            vigas.push({nome:it.nome, b, h, comp, a:[m(a0[0]),m(a0[1])], b2:[m(a1[0]),m(a1[1])], z:m(cx.z1)});
+          });
+        } else {
+          // viga sem extrusão legível: a caixa dá o vão e a seção
+          const dx = cx.x1-cx.x0, dy = cx.y1-cx.y0;
+          const ao = dx >= dy;
+          const comp = m(ao ? dx : dy), b = m(ao ? dy : dx), h = m(cx.z1-cx.z0);
+          if(comp < 0.05 || b <= 0) return;
+          const cxm = (cx.x0+cx.x1)/2, cym = (cx.y0+cx.y1)/2;
+          vigas.push({nome:it.nome, b, h, comp, z:m(cx.z1), caixa:true,
+                      a:[m(ao?cx.x0:cxm), m(ao?cym:cx.y0)], b2:[m(ao?cx.x1:cxm), m(ao?cym:cx.y1)]});
+        }
+      } else if(it.cls === "pilar" || it.cls === "parede"){
+        const ext = sols.find(s=>s.k === "ext" && s.perfil.k === "ret" && Math.abs(s.dir[2]) > 0.7);
+        let b, h, pol;
+        if(ext){
+          const g = cantosExt(ext);
+          b = m(Math.min(ext.perfil.dx, ext.perfil.dy)); h = m(Math.max(ext.perfil.dx, ext.perfil.dy));
+          pol = [[-1,-1],[1,-1],[1,1],[-1,1]].map(q=>{
+            const a = levar(g.F, [q[0]*g.hx, q[1]*g.hy, 0]); return [m(a[0]), m(a[1])]; });
+        } else {
+          const dx = m(cx.x1-cx.x0), dy = m(cx.y1-cx.y0);
+          b = Math.min(dx,dy); h = Math.max(dx,dy);
+          pol = [[cx.x0,cx.y0],[cx.x1,cx.y0],[cx.x1,cx.y1],[cx.x0,cx.y1]].map(q=>[m(q[0]),m(q[1])]);
+        }
+        const alt = m(cx.z1-cx.z0);
+        if(b <= 0 || h <= 0) return;
+        (it.cls === "pilar" ? pilares : paredes).push({nome:it.nome, b, h, alt, pol, z:m(cx.z1)});
+      }
+    });
+    A.lajes = lajes; A.vigas = vigas; A.pilares = pilares; A.paredes = paredes;
+    delete A.itens;
+  });
+
+  const juntos = [];
+  let fundidos = 0;
+  andares.forEach(A=>{
+    const ant = juntos[juntos.length-1];
+    if(ant && A.cota-ant.cota < JUNTO){
+      const peso = X => X.lajes.length + X.vigas.length;
+      if(peso(A) > peso(ant)) ant.nome = A.nome;
+      ant.cota = Math.max(ant.cota, A.cota);
+      ["lajes","vigas","pilares","paredes"].forEach(k=>{ ant[k] = ant[k].concat(A[k]); });
+      fundidos++;
+      return;
+    }
+    juntos.push(A);
+  });
+
+  return {andares:juntos, fundidos, unidade:{fator:uL, nome:uNome},
+          fora, nEnt:E.size,
+          esquema:(/FILE_SCHEMA\s*\(\s*\(\s*'([^']+)'/i.exec(txt)||[,"?"])[1],
+          autor:(/FILE_NAME\s*\([^;]*?'([^']*)'\s*\)\s*;/i.exec(txt)||[,""])[1]};
+}
+
+/* ===================================================================
+   DO MODELO PARA A GEOMETRIA DO APP
+   A prancha precisa de flood fill porque só tem traço. O IFC diz onde a
+   laje está, então a máscara sai do próprio sólido: célula com laje e sem
+   viga, pilar ou furo é célula que leva escora. Pano nervurado vem em
+   dezenas de caixas e o capitel se sobrepõe ao pano — por isso a célula
+   fica com um pano só, o de maior espessura, que é o que manda na carga.
+   Somar a área dos sólidos contaria o mesmo lugar duas vezes.
+   =================================================================== */
+function prepararIFC(A, cell){
+  cell = cell || 0.10;
+  const pols = [], vg = [], pl = [], ab = [];
+  A.lajes.forEach((l,i)=>l.pols.forEach(p=>pols.push({i, pts:p.pts, vazios:p.vazios, esp:l.esp})));
+  A.lajes.forEach(l=>l.abert.forEach(v=>ab.push(v)));
+  A.vigas.forEach(v=>vg.push(v));
+  (A.pilares||[]).forEach(p=>pl.push(p));
+  (A.paredes||[]).forEach(p=>pl.push(p));
+  if(!pols.length && !vg.length) return null;
+
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const ve = q => { if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1]; if(q[1]>y1)y1=q[1]; };
+  pols.forEach(p=>p.pts.forEach(ve));
+  vg.forEach(v=>{ ve(v.a); ve(v.b2); });
+  pl.forEach(p=>p.pol.forEach(ve));
+  if(!isFinite(x0)) return null;
+  const bb = {x0:x0-0.5, y0:y0-0.5, x1:x1+0.5, y1:y1+0.5};
+
+  const W = Math.ceil((bb.x1-bb.x0)/cell)+2, H = Math.ceil((bb.y1-bb.y0)/cell)+2;
+  const laje = new Int16Array(W*H).fill(-1);        // qual pano ocupa a célula
+  const espc = new Float32Array(W*H);
+  const blk  = new Uint8Array(W*H);                 // viga, pilar ou furo: não leva escora de laje
+  const chao = new Uint8Array(W*H);                 // fôrma por baixo: laje, viga ou pilar
+  const furo = new Uint8Array(W*H);                 // vazio de verdade: shaft, caixa de escada
+  const cc = x => Math.floor((x-bb.x0)/cell), cr = y => Math.floor((y-bb.y0)/cell);
+  const xm = c => bb.x0 + (c+0.5)*cell, ym = r => bb.y0 + (r+0.5)*cell;
+
+  const dentro = (p,x,y) => { let d = false;
+    for(let i = 0, j = p.length-1; i < p.length; j = i++){
+      const a = p[i], b = p[j];
+      if(((a[1] > y) !== (b[1] > y)) && (x < (b[0]-a[0])*(y-a[1])/(b[1]-a[1]) + a[0])) d = !d;
+    }
+    return d; };
+  const varrer = (pts, fn) => {
+    let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity;
+    pts.forEach(q=>{ if(q[0]<ax0)ax0=q[0]; if(q[0]>ax1)ax1=q[0]; if(q[1]<ay0)ay0=q[1]; if(q[1]>ay1)ay1=q[1]; });
+    const c0 = Math.max(0,cc(ax0)), c1 = Math.min(W-1,cc(ax1)+1);
+    const r0 = Math.max(0,cr(ay0)), r1 = Math.min(H-1,cr(ay1)+1);
+    for(let c = c0; c <= c1; c++) for(let r = r0; r <= r1; r++)
+      if(dentro(pts, xm(c), ym(r))) fn(r*W+c);
+  };
+
+  pols.forEach(p=>varrer(p.pts, k=>{
+    if(p.vazios.some(v=>dentro(v, xm(k%W), ym((k/W)|0)))) return;
+    if(laje[k] < 0 || p.esp > espc[k]){ laje[k] = p.i; espc[k] = p.esp; }
+    chao[k] = 1;
+  }));
+  pl.forEach(p=>varrer(p.pol, k=>{ blk[k] = 1; chao[k] = 1; }));
+  // faixa da viga: retângulo girado em torno do eixo
+  const faixa = v => {
+    const dx = v.b2[0]-v.a[0], dy = v.b2[1]-v.a[1], L = Math.hypot(dx,dy) || 1e-9;
+    const ux = dx/L, uy = dy/L, hb = v.b/2;
+    return [[0,-hb],[L,-hb],[L,hb],[0,hb]].map(([s,t])=>
+      [v.a[0]+ux*s-uy*t, v.a[1]+uy*s+ux*t]);
+  };
+  vg.forEach(v=>varrer(faixa(v), k=>{ blk[k] = 1; chao[k] = 1; }));
+  // o furo é o último a marcar: ali não há nem laje nem fôrma
+  ab.forEach(v=>varrer(v, k=>{ blk[k] = 1; furo[k] = 1; laje[k] = -1; chao[k] = 0; }));
+
+  let nL = 0, nB = 0, sx = 0, sy = 0;
+  const areaPano = new Float64Array(A.lajes.length);
+  const msk = new Uint8Array(W*H);
+  for(let k = 0; k < W*H; k++){
+    // área bruta é a planta fechada: laje, faixa de viga e pilar, sem os furos
+    if(chao[k] && !furo[k]) nB++;
+    if(laje[k] < 0) continue;
+    areaPano[laje[k]] += 1;
+    if(blk[k]) continue;
+    msk[k] = 1; nL++; sx += k%W; sy += (k/W)|0;
+  }
+  const a1 = cell*cell;
+  const panos = A.lajes.map((l,i)=>({nome:l.nome, tipo:l.tipo, esp:l.esp,
+    desn:Math.round((l.z - A.cota)*100), area:areaPano[i]*a1, furos:l.abert.length}))
+    .filter(p=>p.area >= 0.5);
+
+  // vizinhança: 2 m em volta do que é laje, como na prancha
+  const dil = (src,k) => { const t = new Uint8Array(W*H), o = new Uint8Array(W*H);
+    for(let r = 0; r < H; r++){ let n = 0;
+      for(let x = 0; x < W+k; x++){ if(x<W && src[r*W+x]) n++; if(x-2*k-1 >= 0 && src[r*W+x-2*k-1]) n--;
+        const i = x-k; if(i >= 0 && i < W) t[r*W+i] = n > 0 ? 1 : 0; } }
+    for(let x = 0; x < W; x++){ let n = 0;
+      for(let r = 0; r < H+k; r++){ if(r<H && t[r*W+x]) n++; if(r-2*k-1 >= 0 && t[(r-2*k-1)*W+x]) n--;
+        const i = r-k; if(i >= 0 && i < H) o[i*W+x] = n > 0 ? 1 : 0; } }
+    return o; };
+  const viz = dil(msk, Math.max(2, Math.round(2.0/cell)));
+
+  const mask = {W, H, cell, bb, msk, blk,
+    in:(x,y)=>{ const c = cc(x), r = cr(y); return c>=0&&c<W&&r>=0&&r<H && msk[r*W+c] === 1; },
+    perto:(x,y)=>{ const c = cc(x), r = cr(y); return c>=0&&c<W&&r>=0&&r<H && viz[r*W+c] === 1; },
+    area:nL*a1, areaBruta:nB*a1,
+    cxm:nL ? bb.x0 + (sx/nL)*cell : (bb.x0+bb.x1)/2,
+    cym:nL ? bb.y0 + (sy/nL)*cell : (bb.y0+bb.y1)/2};
+
+  // --- desenho: o IFC vira a mesma geometria que a prancha daria
+  const polys = [], txts = [];
+  const cent = pts => { let ax = 0, ay = 0; pts.forEach(q=>{ ax += q[0]; ay += q[1]; });
+    return [ax/pts.length, ay/pts.length]; };
+  A.lajes.forEach(l=>{ const p0 = l.pols[0];
+    if(p0){ const c = cent(p0.pts); txts.push({lay:"FO-Lajes", s:l.nome, x:c[0], y:c[1]}); } });
+  pols.forEach(p=>polys.push({lay:"FO-Lajes", closed:true, pts:p.pts}));
+  ab.forEach(v=>polys.push({lay:"FO-Aberturas", closed:true, pts:v}));
+  pl.forEach(p=>polys.push({lay:"FO-Pilares", closed:true, pts:p.pol}));
+  vg.forEach(v=>polys.push({lay:"FO-Vigas", closed:true, pts:faixa(v)}));
+
+  // eixo de viga pronto: do IFC, sem pareamento de arestas
+  const eixos = vg.map(v=>({a:[v.a[0],v.a[1]], b:[v.b2[0],v.b2[1]], larg:v.b, alt:v.h, nome:v.nome}));
+
+  return {bb, mask, eixos, panos, lines:[], polys, txts, arcs:[], circles:[],
+          compVigas:vg.reduce((s,v)=>s+v.comp,0),
+          vigas:vg, pilares:pl};
+}
+
 
 function lerDXF(txt){
   const ln = txt.split(/\r?\n/);
@@ -2238,6 +2902,19 @@ function render(){
   $("cEstab").textContent = `ΣV ${fmt(Vtot,0)} kN`;
   $("pQuant").innerHTML = paneQuant(lajes,vigas,cfg,layout);
   $("cQuant").textContent = `${fmt(GEO&&GEO.mask?nDes:nTab,0)} apoios`;
+  if($("pProj")){
+    const aberta = $("gavProj") && $("gavProj").open;
+    if(!PAVS.length){ $("pProj").innerHTML = paneProjeto(cfg); $("cProj").textContent = "só com IFC"; }
+    else if(aberta){
+      $("pProj").innerHTML = paneProjeto(cfg);
+      const R = ULT.proj;
+      $("cProj").textContent = `${R.nPav} pavimentos · ${fmt(R.areaTot,0)} m² · ${fmt(R.escTot,0)} apoios`;
+    } else {
+      $("pProj").innerHTML = `<div class="note">Abra esta gaveta para calcular os
+        <b>${PAVS.length} pavimentos</b> do modelo, um a um, com a configuração que está na tela.</div>`;
+      $("cProj").textContent = `${PAVS.length} pavimentos`;
+    }
+  }
   $("pCorte").innerHTML = paneCorte(cfg);
   $("cCorte").textContent = ULT.plano
     ? `${ULT.plano.chapasTotal} chapas · ${fmt(ULT.plano.aproveitamento*100,0)}% de aproveitamento` : "";
@@ -2928,7 +3605,29 @@ método ${cfg.mode==="elu"?"estados-limites, γq = 1,4":"tensões admissíveis"}
 apoios verticais ${fmt(nAp,0)} · placas ${geo?fmt(layout.placas.length,0):"—"}
 barrote ${fmt(geo?layout.barrotes.reduce((s,t)=>s+Math.hypot(t[1][0]-t[0][0],t[1][1]-t[0][1]),0):0,0)} m
 longarina ${fmt(geo?layout.longas.reduce((s,t)=>s+Math.hypot(t[1][0]-t[0][0],t[1][1]-t[0][1]),0):0,0)} m</div>
+    ${quadroPavimentos()}
     ${L.map(r=>`<div class="bl">${memLaje(r,cfg)}</div>`).join("")}`;
+}
+// O memorial de um pavimento não responde pelo prédio. Com o modelo lido, o
+// quadro dos pavimentos entra no PDF junto — é o que o orçamento usa.
+function quadroPavimentos(){
+  const NL = String.fromCharCode(10);
+  const R = ULT.proj;
+  if(!PAVS.length || !R) return "";
+  const col = (s,n) => String(s).padStart(n);
+  const linhas = R.linhas.filter(l=>!l.vazio && !l.semBase).map(l=>
+    `${l.P.nome.slice(0,26).padEnd(27)}${col(fmt(l.P.cota,2),8)}${col(fmt(l.H,2),8)}${col(fmt(l.areaBruta,0),10)}`
+    + `${col(fmt(l.comp,0),9)}${col(fmt(l.nEsc+l.nEscV,0),9)}${col(fmt(l.nPlacas,0),9)}${col(fmt(l.fu*100,0)+"%",8)}`).join(NL);
+  return `<div class="bl"><b>QUADRO DE PAVIMENTOS</b> — ${R.nPav} pavimentos do modelo
+${"pavimento".padEnd(27)}${col("cota",8)}${col("H esc",8)}${col("m² fôrma",10)}${col("m viga",9)}${col("apoios",9)}${col("placas",9)}${col("aprov.",8)}
+${linhas}
+${"TOTAL".padEnd(27)}${col("—",8)}${col("—",8)}${col(fmt(R.areaTot,0),10)}${col(fmt(R.compTot,0),9)}${col(fmt(R.escTot,0),9)}${col("—",9)}${col("—",8)}
+
+Equipamento a mobilizar, pelo pico entre pavimentos × ${R.jogos} jogo(s):
+${R.itens.map(i=>`${i.nome.slice(0,34).padEnd(35)}${col(fmt(i.canteiro,0),8)} ${i.un}   (pico ${fmt(i.pico,0)} em ${i.ondePico})`).join(NL)}
+
+Ciclo ${fmt(R.ciclo,0)} dias/pavimento · ${fmt(R.prazo,0)} dias de estrutura · ${fmt(R.meses,1)} meses de locação
+As quantidades vêm do modelo; os preços da gaveta de orçamento são valores de partida, não cotação.</div>`;
 }
 
 /* ===================================================================
@@ -3091,6 +3790,206 @@ async function lerPDF(buf){
   }
   return itens;
 }
+/* ===================================================================
+   PROJETO COMPLETO — o prédio, não o pavimento
+   A prancha dá um pavimento e o orçamento multiplicava por um número de
+   repetições digitado à mão. Com o IFC cada pavimento tem a sua área, a
+   sua viga e o seu pé-direito, então o cálculo roda pavimento a pavimento
+   e o equipamento sai do pior deles: o que se compra ou aluga é um jogo
+   que atende o pavimento mais exigente, e esse jogo circula pela obra.
+   =================================================================== */
+
+// Um pavimento do IFC vira a mesma lista de elementos que a prancha gera.
+// Laje por pano, viga por seção (o cálculo é por tipo) e pilar por peça,
+// que é como o Anexo D precisa para a fôrma vertical.
+function elsDoPav(P){
+  const g = P.geo, els = [];
+  g.panos.forEach(p=>els.push({id:p.nome, t:p.tipo, a:Math.max(5,Math.round(p.esp*100)),
+    e:Math.abs(p.desn) < 100 ? p.desn : 0, q:+p.area.toFixed(1), deIfc:true}));
+  const gv = {};
+  g.vigas.forEach(v=>{
+    const b = Math.max(8, Math.round(v.b*100)), h = Math.max(10, Math.round(v.h*100));
+    const k = b+"x"+h;
+    (gv[k] = gv[k] || {b, h, comp:0, n:0});
+    gv[k].comp += v.comp; gv[k].n++;
+  });
+  Object.values(gv).sort((a,b)=>b.comp-a.comp).forEach(o=>els.push({
+    id:`V${o.b}×${o.h}`, t:"viga", b:o.b, h:o.h, e:0, q:+o.comp.toFixed(1), deIfc:true, nEixos:o.n}));
+  g.pilares.forEach((p,i)=>els.push({id:p.nome || `P${i+1}`, t:"pilar",
+    b:Math.max(8,Math.round(p.b*100)), h:Math.max(8,Math.round(p.h*100)), e:0,
+    q:+Math.max(0.3, p.alt || P.pd || 3).toFixed(2), deIfc:true}));
+  return els;
+}
+
+// O IFC dá a cota de cada pavimento; o apoio da escora é o pavimento de baixo.
+function montarPavs(r){
+  const out = [];
+  r.andares.forEach((A,i)=>{
+    const g = prepararIFC(A, 0.10);
+    if(!g || !g.panos.length) return;
+    // sem pavimento abaixo não há de onde escorar, e a altura seria inventada
+    const base = i > 0 ? r.andares[i-1].cota : A.cota - 3;
+    const P = {A, nome:A.nome, cota:A.cota, base, pd:A.cota-base, geo:g, semBase:i === 0};
+    P.els = elsDoPav(P);
+    out.push(P);
+  });
+  return out;
+}
+
+// roda fn com o pavimento no lugar do global, porque o cálculo todo lê GEO e ELS
+function comPav(P, fn){
+  const gA = GEO, eA = ELS;
+  GEO = P.geo; ELS = P.els;
+  try { return fn(); } finally { GEO = gA; ELS = eA; }
+}
+// a configuração do pavimento muda só na altura de escora
+function cfgDoPav(cfg, P){
+  const lajes = P.els.filter(e=>e.t.startsWith("laje"));
+  const hLajeRef = (lajes.length ? Math.max(...lajes.map(e=>e.a)) : 18)/100;
+  const H = Math.max(0.3, P.cota - hLajeRef - P.base - cfg.eForma);
+  return Object.assign({}, cfg, {nivLaje:P.cota, nivApoio:P.base, hLajeRef, H});
+}
+
+function calcProjeto(cfg){
+  const linhas = PAVS.map(P=>comPav(P, ()=>{
+    if(P.semBase) return {P, semBase:true};
+    const c = cfgDoPav(cfg, P);
+    const lajes = ELS.filter(e=>e.t.startsWith("laje")).map(e=>calcLaje(e,c));
+    const vigas = ELS.filter(e=>e.t==="viga").map(e=>calcViga(e,c));
+    if(!lajes.length) return {P, c, vazio:true};
+    const rGov = lajes.slice().sort((a,b)=>(a.sViga*a.sEsc)-(b.sViga*b.sEsc))[0];
+    const rVigaGov = vigas.slice().sort((a,b)=>a.s-b.s)[0];
+    const layout = gerarLayout(c, rGov, rVigaGov);
+    const M = listaMateriais(lajes, vigas, c, layout);
+    return {P, c, rGov, M,
+      area:P.geo.mask.area, areaBruta:P.geo.mask.areaBruta, comp:P.geo.compVigas,
+      nEsc:layout.escoras.length, nEscV:layout.escVigas.length,
+      nPlacas:layout.placas.length, grade:[rGov.sViga, rGov.sEsc], H:c.H,
+      qk:Math.max(0,...lajes.map(r=>r.qk)),
+      fu:Math.max(0,...lajes.map(r=>r.fu), ...vigas.map(r=>r.fu))};
+  }));
+
+  const bons = linhas.filter(l=>!l.vazio && !l.semBase);
+  const jogos = Math.max(1, ORC.jogos), reuso = Math.max(1, num("reusoComp") || 10);
+  // Equipamento: um jogo tem de servir o pior pavimento, porque é o mesmo
+  // jogo que sobe. Consumível é diferente: gasta-se e se repõe pelo total.
+  const chaves = new Map();
+  bons.forEach(l=>l.M.itens.forEach(it=>{
+    const o = chaves.get(it.k) || {k:it.k, nome:it.nome, un:it.un, consumivel:it.consumivel,
+                                   pico:0, soma:0, ondePico:""};
+    if(it.qtd > o.pico){ o.pico = it.qtd; o.ondePico = l.P.nome; }
+    o.soma += it.qtd;
+    chaves.set(it.k, o);
+  }));
+  const itens = [...chaves.values()].map(o=>{
+    const p = PRECOS[o.k] || {venda:0, aluguel:0};
+    // consumível se repõe pelo total, mas o canteiro nunca tem menos que um jogo
+    const canteiro = Math.max(Math.ceil(o.pico*jogos),
+                              o.consumivel ? Math.ceil(o.soma/reuso) : 0);
+    return Object.assign({}, o, {canteiro,
+      venda: canteiro*p.venda*(o.consumivel ? 1 : 1+ORC.reposicao/100),
+      aluguelMes: o.consumivel ? 0 : canteiro*p.aluguel});
+  });
+
+  const nPav = bons.length;
+  const ciclo = Math.max(1, ORC.ciclo);
+  // o jogo a mais não encurta o ciclo: ele existe porque o pavimento de baixo
+  // ainda não pode ser desescorado quando o de cima é concretado
+  const meses = nPav*ciclo/30;
+  const areaTot = bons.reduce((s,l)=>s+l.areaBruta, 0);
+  const eqVenda = itens.filter(i=>!i.consumivel).reduce((s,i)=>s+i.venda, 0);
+  const eqMes = itens.reduce((s,i)=>s+i.aluguelMes, 0);
+  const consum = itens.filter(i=>i.consumivel).reduce((s,i)=>s+i.venda, 0);
+  const frete = ORC.frete*Math.max(0, ORC.viagens);
+  const servico = (ORC.montagem+ORC.desmontagem)*areaTot;
+  const base = m => m+consum+frete+servico;
+  return {linhas, bons, itens, nPav, jogos, ciclo, meses, reuso, areaTot,
+    areaLiq:bons.reduce((s,l)=>s+l.area, 0),
+    compTot:bons.reduce((s,l)=>s+l.comp, 0),
+    escTot:bons.reduce((s,l)=>s+l.nEsc+l.nEscV, 0),
+    eqVenda, eqMes, consum, frete, servico,
+    totV:base(eqVenda)*(1+ORC.impostos/100),
+    totA:base(eqMes*meses)*(1+ORC.impostos/100),
+    prazo:nPav*ciclo};
+}
+
+function paneProjeto(cfg){
+  if(!PAVS.length) return `<div class="note">Importe um <b>IFC</b> para calcular o projeto inteiro.
+    A prancha em DXF dá um pavimento de cada vez; o IFC traz todos, cada um com a sua cota,
+    a sua área e o seu pé-direito.</div>`;
+  const R = ULT.proj = calcProjeto(cfg);
+  const linha = (l,i) => {
+    if(l.vazio) return `<tr style="opacity:.5"><td>${l.P.nome}</td><td colspan="9">sem pano de laje</td></tr>`;
+    if(l.semBase) return `<tr style="opacity:.6"><td>${l.P.nome}</td><td class="num">${fmt(l.P.cota,2)}</td>
+      <td colspan="8">é o nível mais baixo do modelo — apoia no solo, não em escora, e fica fora do cálculo</td></tr>`;
+    return `<tr${i===iPav?' style="background:var(--sel,rgba(127,127,127,.12))"':''}>
+      <td><b>${l.P.nome}</b>${i===iPav?' <span class="pill ok">na tela</span>':''}</td>
+      <td class="num">${fmt(l.P.cota,2)}</td><td class="num">${fmt(l.P.pd,2)}</td>
+      <td class="num">${fmt(l.H,2)}</td>
+      <td class="num">${fmt(l.areaBruta,0)}</td><td class="num">${fmt(l.comp,0)}</td>
+      <td class="num">${fmt(l.grade[0],2)}×${fmt(l.grade[1],2)}</td>
+      <td class="num">${fmt(l.nEsc+l.nEscV,0)}</td><td class="num">${fmt(l.nPlacas,0)}</td>
+      <td class="num">${pill(l.fu)}</td></tr>`;
+  };
+  const pior = R.bons.slice().sort((a,b)=>b.fu-a.fu)[0];
+  const maior = R.bons.slice().sort((a,b)=>(b.nEsc+b.nEscV)-(a.nEsc+a.nEscV))[0];
+  return `
+  <div class="note"><b>${R.nPav} pavimentos no modelo</b>, ${fmt(R.areaTot,0)} m² de fôrma no total
+    (${fmt(R.areaLiq,0)} m² entre vigas) e ${fmt(R.compTot,0)} m de viga.
+    Cada pavimento foi calculado com a sua própria cota e pé-direito, e com a configuração
+    de materiais que está na tela.
+    ${R.linhas.length > R.bons.length ? `<br>${R.linhas.length-R.bons.length} nível(is) de fora:
+      o mais baixo do modelo, que apoia no solo, e o que não tem pano de laje.` : ""}</div>
+
+  <div class="scroll"><table><thead><tr>
+    <th>Pavimento</th><th class="numum">cota (m)</th><th class="numum">pé-dir.</th><th class="numum">H escora</th>
+    <th class="numum">m² fôrma</th><th class="numum">m viga</th><th class="numum">grade (m)</th>
+    <th class="numum">apoios</th><th class="numum">placas</th><th class="numum">aprov.</th>
+  </tr></thead><tbody>${R.linhas.map(linha).join("")}</tbody>
+  <tfoot><tr><th>Projeto</th><th class="numum">—</th><th class="numum">—</th><th class="numum">—</th>
+    <th class="numum">${fmt(R.areaTot,0)}</th><th class="numum">${fmt(R.compTot,0)}</th><th class="numum">—</th>
+    <th class="numum">${fmt(R.escTot,0)}</th><th class="numum">—</th><th class="numum">—</th></tr></tfoot></table></div>
+
+  <div class="sub">Equipamento a mobilizar</div>
+  <div class="note">O jogo tem de atender o pavimento mais exigente, porque é o mesmo jogo que sobe.
+    Por isso o equipamento sai do <b>pico</b> entre os pavimentos, multiplicado por
+    ${R.jogos} jogo(s) simultâneo(s) — e não pela soma, que seria comprar a obra inteira de uma vez.
+    O consumível é o contrário: gasta-se, então vem da soma dividida pelo reaproveitamento
+    de ${fmt(R.reuso,0)} usos.</div>
+  <div class="scroll"><table><thead><tr><th>Item</th><th class="numum">pico/pav.</th><th>onde</th>
+    <th class="numum">soma dos pav.</th><th class="numum">a mobilizar</th></tr></thead><tbody>
+    ${R.itens.map(i=>`<tr><td>${i.nome}${i.consumivel?' <span class="pill warn">consumível</span>':''}</td>
+      <td class="num">${fmt(i.pico,0)}</td><td style="font-size:11px;color:var(--ink-3)">${i.ondePico}</td>
+      <td class="num">${fmt(i.soma,0)}</td><td class="num"><b>${fmt(i.canteiro,0)}</b></td></tr>`).join("")}
+  </tbody></table></div>
+
+  <div class="sub">Prazo e custo do projeto</div>
+  <div class="scroll"><table><tbody>
+    <tr><td>Ciclo por pavimento</td><td class="num">${fmt(R.ciclo,0)} dias</td>
+        <td>${R.jogos} jogo(s) → <b>${fmt(R.prazo,0)} dias</b> de estrutura (${fmt(R.meses,1)} meses de locação)</td></tr>
+    <tr><td>Montagem e desmontagem</td><td class="num">${BRL(R.servico)}</td>
+        <td>${BRL(ORC.montagem+ORC.desmontagem)}/m² sobre ${fmt(R.areaTot,0)} m²</td></tr>
+    <tr><td>Consumível</td><td class="num">${BRL(R.consum)}</td><td>placa e sarrafo, pelo reaproveitamento</td></tr>
+    <tr><td>Frete</td><td class="num">${BRL(R.frete)}</td><td>${ORC.viagens} viagens</td></tr>
+    <tr><td><b>Comprando o equipamento</b></td><td class="num"><b>${BRL(R.totV)}</b></td>
+        <td>${BRL(R.eqVenda)} de equipamento + serviço + consumível</td></tr>
+    <tr><td><b>Alugando o equipamento</b></td><td class="num"><b>${BRL(R.totA)}</b></td>
+        <td>${BRL(R.eqMes)}/mês por ${fmt(R.meses,1)} meses</td></tr>
+  </tbody></table></div>
+  <div class="note w"><b>Os preços são valores de partida, não são cotação.</b> As quantidades vêm do modelo;
+    o preço é seu. Troque na gaveta do orçamento.</div>
+
+  <div class="sub">Onde está o governo do projeto</div>
+  <div class="note">
+    Aproveitamento máximo em <b>${pior ? pior.P.nome : "—"}</b>, com ${pior ? fmt(pior.fu*100,0) : "—"}%
+    — é esse pavimento que dita a grade se o jogo for único.<br>
+    Mais apoios em <b>${maior ? maior.P.nome : "—"}</b>, com ${maior ? fmt(maior.nEsc+maior.nEscV,0) : "—"}
+    apoios em ${maior ? fmt(maior.areaBruta,0) : "—"} m².<br>
+    Pé-direito de escora de ${fmt(Math.min(...R.bons.map(l=>l.H)),2)} a
+    ${fmt(Math.max(...R.bons.map(l=>l.H)),2)} m.
+  </div>`;
+}
+
 function aplicar(els,msg){
   if(!els.length){ if($("parseMsg")) $("parseMsg").innerHTML =
     `<span style="color:var(--bad)">Nenhuma marca reconhecida. A prancha precisa de textos pesquisáveis, não vetorizados.</span>`; return; }
@@ -3104,6 +4003,89 @@ function aplicar(els,msg){
   if($("parseMsg")) $("parseMsg").innerHTML = `<b>${msg}</b><br>${lajes.length} laje(s), ${nV} viga(s), ${nP} pilar(es).`;
   ULT.msg = msg;
 }
+
+/* --- Importar o modelo ------------------------------------------------
+   O IFC não tem marca escrita para ler: tem o sólido. Então não passa
+   por lerMarcas nem por detecção de escala — vem o prédio inteiro, com
+   a cota de cada pavimento, e a tela mostra um deles por vez. */
+function decodificarIFC(buf){
+  // a norma manda ASCII com escape, mas o arquivo costuma vir em latin-1
+  try{ return new TextDecoder("utf-8", {fatal:true}).decode(buf); }
+  catch(_){ return new TextDecoder("windows-1252").decode(buf); }
+}
+function fillPavSel(){
+  const s = $("pavSel");
+  if(!s) return;
+  s.innerHTML = PAVS.map((P,i)=>
+    `<option value="${i}">${P.nome} — ${fmt(P.cota,2)} m · ${fmt(P.geo.mask.areaBruta,0)} m²</option>`).join("");
+  if($("boxPav")) $("boxPav").hidden = !PAVS.length;
+}
+function trocarPav(i, redesenhar){
+  const P = PAVS[i];
+  if(!P) return;
+  iPav = i;
+  GEO = P.geo; ELS = P.els;
+  $("nivLaje").value = +P.cota.toFixed(2);
+  $("nivApoio").value = +P.base.toFixed(2);
+  $("areaTot").value = Math.round(P.geo.mask.area);
+  $("areaBrutaMan").value = 0; $("perimMan").value = 0;
+  $("compVigasTot").value = Math.round(P.geo.compVigas);
+  // a cota vem do pavimento escolhido: os seletores de nível saem do caminho
+  $("pavLaje").value = ""; $("pavApoio").value = "";
+  $("pavSel").value = String(i);
+  $("escala").value = "1"; $("escalaFator").value = 1;
+  CAM.pronta = false; V3.cx = V3.cy = null;
+  enquadrar();
+  if(redesenhar !== false) render();
+}
+async function carregarIFC(f){
+  const r = lerIFC(decodificarIFC(await f.arrayBuffer()));
+  if(!r.andares.length) throw new Error(
+    "o modelo não traz IfcBuildingStorey. Sem pavimento não há como separar o cálculo — "
+    + "exporte com a estrutura espacial (projeto, prédio, pavimento)");
+  PAVS = montarPavs(r);
+  if(!PAVS.length) throw new Error(
+    `o modelo tem ${r.andares.length} pavimentos, mas nenhum com laje legível. `
+    + "Confira se a exportação incluiu as lajes e a geometria de corpo (Body)");
+  ULT.geoBruto = null;
+  NIVEIS = r.andares.map(A=>[A.nome.toUpperCase(), Math.round(A.cota*100)]);
+  fillNiveis();
+  DESFORMA = DESFORMA_HRD.map(p=>p.slice());     // prazo de desforma não vem no IFC
+  mostrarDesforma();
+  fillPavSel();
+  ORC.nPav = PAVS.length;
+  if($("oPav")) $("oPav").value = PAVS.length;
+  // o pavimento que mais se repete é o tipo, e é por ele que se dimensiona o jogo
+  const rep = {};
+  PAVS.forEach((P,i)=>{ const k = `${Math.round(P.geo.mask.areaBruta)}|${Math.round(P.geo.compVigas)}`;
+    (rep[k] = rep[k] || []).push(i); });
+  const fam = Object.values(rep).sort((a,b)=>b.length-a.length)[0];
+  trocarPav(fam[Math.floor(fam.length/2)], false);
+  const fora = Object.entries(r.fora||{});
+  const nL = PAVS.reduce((s,P)=>s+P.geo.panos.length, 0);
+  const nV = PAVS.reduce((s,P)=>s+P.geo.eixos.length, 0);
+  // modelo de arquitetura não tem viga, e sem viga o escoramento sai só da laje
+  const semViga = nV === 0 ? `<br><span style="color:var(--bad)"><b>Nenhuma viga no modelo.</b>
+    Ou é modelo de arquitetura, ou a exportação não incluiu as vigas — o cálculo sai só com a
+    laje, sem escora de viga e sem a faixa que elas ocupam.</span>` : "";
+  aplicar(ELS,
+    `${f.name} lido — modelo ${r.esquema}, ${fmt(r.nEnt,0)} entidades, medidas em `
+    + `${r.unidade.nome} (×${fmt(r.unidade.fator,3)}).<br>`
+    + `<b>${PAVS.length} pavimentos</b> de ${fmt(PAVS[0].cota,2)} a ${fmt(PAVS[PAVS.length-1].cota,2)} m, `
+    + `com ${nL} panos de laje e ${nV} trechos de viga. `
+    + `Na tela: <b>${PAVS[iPav].nome}</b> — ${fam.length > 1 ? `o tipo, que repete ${fam.length} vezes` : "o maior pano"}. `
+    + `Troque em <b>Pavimento do modelo</b>; o projeto inteiro está na gaveta <b>Projeto completo</b>.`
+    + (fora.length ? `<br><span style="color:var(--ink-3)">Fora do cálculo: `
+        + fora.map(([k,n])=>`${n} ${k.replace(/^IFC/,"").toLowerCase()}`).join(", ")
+        + ` — fundação e peça fora de pavimento não se escoram como laje.</span>` : "")
+    + (r.fundidos ? `<br><span style="color:var(--ink-3)">${r.fundidos} nível(is) de osso juntados
+       ao pavimento acabado correspondente — distam menos de 1 m e são o mesmo pavimento.</span>` : "")
+    + semViga
+    + `<br><span style="color:var(--warn)">A seção da viga e a espessura da laje vêm medidas no sólido;
+       o tipo de laje vem da propriedade do modelo. <b>Confira o tipo</b> em Elementos antes de usar —
+       maciça e nervurada mudam o peso próprio.</span>`);
+}
+
 async function carregarArquivo(f){
   ULT.nome = f.name.replace(/\.[^.]+$/,"");
   // o nome da prancha anterior não pode sobreviver ao arquivo novo: ele assina
@@ -3114,9 +4096,21 @@ async function carregarArquivo(f){
     const nome = f.name.toLowerCase(); let itens, compVigas=0;
     // projeto novo: o que era da prancha anterior sai
     NIVEIS = []; DESFORMA = []; CAM.pronta = false; V3.cx = V3.cy = null;
+    PAVS = []; iPav = -1; if($("boxPav")) $("boxPav").hidden = true;
+    // as camadas achadas na prancha anterior ficavam valendo para a seguinte, e
+    // camada de outro desenho classifica errado o que esta prancha desenhou
+    Object.keys(PADRAO_CAMADAS).forEach(c=>CAMADAS[c] = PADRAO_CAMADAS[c].slice());
+    recompilarCamadas();
+    // o IFC já vem em metro e fixa a escala em 1; a prancha seguinte precisa
+    // da detecção de volta, ou lê o desenho no dobro do tamanho
+    $("escala").value = "auto";
+    // o pano que dita a grade é escolha dentro de uma prancha: carregado outro
+    // projeto, um pano de mesmo nome dita a grade do desenho errado
+    $("lajeGov").value = "";
     $("areaBrutaMan").value = 0; $("perimMan").value = 0;
     $("pavLaje").value = ""; $("pavApoio").value = "";
     let mapa = null;
+    if(nome.endsWith(".ifc") || nome.endsWith(".ifczip")){ await carregarIFC(f); return; }
     if(nome.endsWith(".pdf")){ itens = await lerPDF(await f.arrayBuffer()); GEO = null; ULT.geoBruto = null; }
     else if(nome.endsWith(".dxf")){
       const g = lerDXF(await f.text()); itens = g.txts; compVigas = g.compVigas; ULT.geoBruto = g; GEO = null;
@@ -3218,6 +4212,7 @@ async function loadPreset(k){
   ELS = JSON.parse(JSON.stringify(p.els));
   ULT.nome = p.nome; $("projName").value = p.nome;
   GEO = null; CAM.pronta = false; V3.cx = V3.cy = null;
+  PAVS = []; iPav = -1; if($("boxPav")) $("boxPav").hidden = true;
   Object.keys(PADRAO_CAMADAS).forEach(c=>CAMADAS[c]=PADRAO_CAMADAS[c].slice());
   recompilarCamadas();
   DESFORMA = p.geo ? DESFORMA_HRD.map(q=>q.slice()) : [];
@@ -3268,6 +4263,9 @@ function syncNivel(){
   if(b) $("nivApoio").value=(parseFloat(b)/100).toFixed(2);
   render();
 }
+$("pavSel").onchange = e => trocarPav(+e.target.value);
+// a gaveta fechada não calcula; ao abrir, calcula
+$("gavProj").ontoggle = () => { if(PAVS.length) render(); };
 $("preset").onchange = e => loadPreset(e.target.value);
 // trocar a escala reprocessa a geometria guardada, sem reler o arquivo
 function reprocessarEscala(){
@@ -3450,6 +4448,8 @@ if(solto){
   $("expZone").innerHTML = `<button class="primary" id="pdf">exportar PDF</button>
     <button id="dxf">exportar DXF</button>`;
   $("pdf").onclick = ()=>{
+    // o quadro de pavimentos só é calculado com a gaveta aberta, e ele vai no memorial
+    if(PAVS.length && !$("gavProj").open){ $("gavProj").open = true; render(); }
     // o jogo de pranchas só existe na hora de imprimir
     montarPranchasPdf(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov);
     window.print();
