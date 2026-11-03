@@ -53,11 +53,24 @@ O Revit costuma exportar dois níveis por pavimento, o de osso e o acabado, a po
 do outro; o app junta níveis a menos de 1 m, senão o pé-direito de um deles viraria 6 cm e a área
 contaria duas vezes. Modelo de arquitetura não tem viga, e o app avisa: o cálculo sai só com a laje.
 
-A gaveta **Projeto completo** calcula todos os pavimentos com a configuração que está na tela e
-mostra, por pavimento, área de fôrma, metros de viga, grade, apoios, placas e aproveitamento —
-e, para o projeto, o equipamento a mobilizar. Esse equipamento sai do **pico** entre os
-pavimentos multiplicado pelos jogos simultâneos, e não da soma: o jogo que sobe é o mesmo, e tem
-de atender o pavimento mais exigente. O consumível vem da soma dividida pelo reaproveitamento.
+O projeto inteiro é calculado **na importação**, não sob demanda: a gaveta **Projeto completo**
+já abre com os números. Ela mostra, por pavimento, área de fôrma, metros de viga, grade, apoios,
+placas, dias de montagem e de desmontagem, e aproveitamento. Para o projeto, o equipamento a
+mobilizar sai do **pico** entre os pavimentos multiplicado pelos jogos simultâneos, e não da soma:
+o jogo que sobe é o mesmo, e tem de atender o pavimento mais exigente. O consumível vem da soma
+dividida pelo reaproveitamento.
+
+Montagem e desmontagem saem da produtividade por m² de fôrma com a equipe informada (valores de
+partida, editáveis na gaveta do orçamento). Desforma parcial e total e o reescoramento do Anexo C
+entram numa linha do tempo pavimento a pavimento, em dias corridos do início da estrutura — e daí
+sai quantos jogos a obra precisa de verdade: se o informado for menor, o app avisa que o
+equipamento está subestimado. Os prazos de desforma são do projeto estrutural e prevalecem.
+
+O **3D mostra o prédio inteiro** com o escoramento de cada pavimento, filtrável por faixa de
+pavimentos e pelas mesmas caixas de peça da vista de um andar (laje, vigas, pilares, placas,
+barrotes, longarinas, escoras). Acima de dois pavimentos a escora vira um retângulo de frente para
+a câmera, uma face no lugar de doze, para a tela aguentar: a torre de 21 pavimentos do exemplo dá
+24 mil faces, ou 11 mil sem placas e barrotes.
 
 O nível mais baixo do modelo fica de fora: ele apoia no solo, não em escora.
 

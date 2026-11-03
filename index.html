@@ -244,6 +244,15 @@ footer.sheet b{color:var(--ink-2)}
           style="width:60px;padding:3px 5px;font-size:11.5px" title="lado da janela em metros; menor = mais leve"> m</label>
         <span id="n3d" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)"></span>
       </div>
+      <div class="sep" id="sepPav3" hidden></div>
+      <div class="g" id="box3Pav" hidden>
+        <label class="chk">pavimentos
+          <select id="pav3De" style="width:auto;padding:3px 5px;font-size:11.5px"></select>
+          <span style="color:var(--ink-3)">até</span>
+          <select id="pav3Ate" style="width:auto;padding:3px 5px;font-size:11.5px"></select></label>
+        <button id="pav3Tudo">o prédio inteiro</button>
+        <button id="pav3Um">só o da tela</button>
+      </div>
     </div>
     <div class="ctrl" id="ctrl2d">
       <div class="g">
@@ -547,6 +556,13 @@ const PRECOS = {
 };
 const ORC = {modo:"comparar", nPav:18, ciclo:15, jogos:2, frete:2800, viagens:4,
              montagem:14, desmontagem:7, reposicao:8, impostos:0};
+/* --- Tempo ------------------------------------------------------------
+   Produtividade em m² de fôrma por homem-hora. VALORES DE PARTIDA, como os
+   preços: variam com a equipe, o sistema e a repetição do pavimento. Os
+   prazos de desforma são os da prancha do projeto estrutural — quem manda
+   neles é o projetista da estrutura, não esta calculadora. */
+const TEMPO = {equipe:6, jornada:8.8, prodMont:1.2, prodDesm:2.5,
+               desfParcial:15, desfTotal:28, fracParcial:2/3};
 const BRL = v => (v==null||!isFinite(v)) ? "—"
   : v.toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
 const D1 = {C1:[5,21],C2:[10,19],C3:[14,18],C4:[17,17]};
@@ -2216,7 +2232,7 @@ function gerarLayout(cfg, rGov, rVigaGov){
    Vetorial de propósito: sai no PDF junto com o resto, e a linguagem
    gráfica combina com a prancha. Painter's algorithm, sem biblioteca.
    =================================================================== */
-const V3 = {modo:false, recorte:60, cx:null, cy:null};
+const V3 = {modo:false, recorte:60, cx:null, cy:null, de:0, ate:0, simples:false};
 
 // Caixa alinhada aos eixos: 6 faces com vértices em ordem anti-horária vista de fora.
 function caixa(x0,y0,z0, dx,dy,dz, cor, cls){
@@ -2304,9 +2320,19 @@ function gerar3D(cfg, layout, rGov){
     if(!dentro(cx,cy)) return;
     F.push(...prisma(p.pts, 0, zLaje+hLaje, "pilar", "pilar"));
   });
+  // Com o prédio inteiro na tela são dezenas de milhares de faces. A escora
+  // vira então um retângulo de frente para a câmera: uma face no lugar de
+  // doze, e de longe não se distingue da caixa.
+  const fita = (x,y,z0,alt,cor,cls) => {
+    const ux = Math.cos(CAM.yaw+Math.PI/2)*0.03, uy = Math.sin(CAM.yaw+Math.PI/2)*0.03;
+    const q = [[x-ux,y-uy,z0],[x+ux,y+uy,z0],[x+ux,y+uy,z0+alt],[x-ux,y-uy,z0+alt]];
+    return [{pts:q, cor, cls, face:"lado"},
+            {pts:q.slice().reverse(), cor, cls, face:"lado"}];
+  };
   // escoras com placa de base
   if(chk("v3Esc")){
     layout.escoras.filter(([x,y])=>dentro(x,y)).forEach(([x,y])=>{
+      if(V3.simples){ F.push(...fita(x,y,0,H,"esc","escora")); return; }
       F.push(...caixa(x-0.03,y-0.03,0, 0.06,0.06,H, "esc","escora"));
       F.push(...caixa(x-0.075,y-0.075,0, 0.15,0.15,0.02, "base","base"));
     });
@@ -2318,6 +2344,7 @@ function gerar3D(cfg, layout, rGov){
         if(d<dm){ dm=d; melhor=e; }
       });
       const topo = melhor ? Math.max(0.4, fundoViga(melhor)-hSarrafo) : H+hLong;
+      if(V3.simples){ F.push(...fita(x,y,0,topo,"escv","escora-viga")); return; }
       F.push(...caixa(x-0.03,y-0.03,0, 0.06,0.06,topo, "escv","escora-viga"));
       F.push(...caixa(x-0.075,y-0.075,0, 0.15,0.15,0.02, "base","base"));
     });
@@ -2350,6 +2377,33 @@ function gerar3D(cfg, layout, rGov){
   return {faces:F, R, H, zLaje, hLaje};
 }
 
+/* --- O prédio inteiro -------------------------------------------------
+   Cada pavimento é o mesmo modelo de um andar, erguido até a cota do seu
+   apoio. O layout já foi calculado no projeto, então aqui só se desenha. */
+function gerar3DProjeto(cfg){
+  const R = projetoAtual(cfg);
+  if(!R || !R.bons.length) return null;
+  const de = Math.max(0, Math.min(V3.de, R.bons.length-1));
+  const ate = Math.max(de, Math.min(V3.ate, R.bons.length-1));
+  const sel = R.bons.slice(de, ate+1);
+  V3.simples = sel.length > 2;
+  const F = [];
+  let prim = null, z0 = sel.length ? sel[0].P.base : 0, z1 = z0;
+  for(const l of sel){
+    const g = comPav(l.P, ()=>gerar3D(l.c, l.layout, l.rGov));
+    if(!g || !g.faces.length) continue;
+    const dz = l.P.base - z0;
+    for(const f of g.faces) F.push({pts:f.pts.map(q=>[q[0], q[1], q[2]+dz]), cor:f.cor, cls:f.cls, face:f.face});
+    if(!prim) prim = g;
+    z1 = Math.max(z1, l.P.cota);
+    if(F.length > 60000) break;                 // teto para a tela não travar
+  }
+  V3.simples = false;
+  if(!prim) return null;
+  return {faces:F, R:prim.R, H:prim.H, zLaje:prim.zLaje, hLaje:prim.hLaje,
+          nPav:sel.length, altura:z1-z0, nomes:[sel[0].P.nome, sel[sel.length-1].P.nome]};
+}
+
 /* --- Câmera em perspectiva ------------------------------------------
    Projeção cônica de verdade, com plano próximo recortado, para dar para
    entrar no modelo e olhar de qualquer ângulo. */
@@ -2371,8 +2425,10 @@ function diagPlano(){
 }
 function vistaGeral(){
   const M = GEO && GEO.mask;
-  CAM.tx = M ? M.cxm : 0; CAM.ty = M ? M.cym : 0; CAM.tz = 1.4;
-  CAM.yaw = Math.PI*0.25; CAM.pitch = -0.42; CAM.dist = diagPlano()*0.80;
+  const alt = ULT.alt3d || 0;                    // altura do trecho de prédio na tela
+  CAM.tx = M ? M.cxm : 0; CAM.ty = M ? M.cym : 0; CAM.tz = 1.4 + alt/2;
+  CAM.yaw = Math.PI*0.25; CAM.pitch = alt > 8 ? -0.25 : -0.42;
+  CAM.dist = Math.max(diagPlano()*0.80, alt*1.25);
   CAM.pronta = true;
 }
 function entrarNoModelo(){
@@ -2398,9 +2454,11 @@ function cortaPerto(pts, near){
 function desenhar3D(cfg, layout, rGov){
   const svg = $("svg");
   while(svg.firstChild) svg.removeChild(svg.firstChild);
-  const G = gerar3D(cfg, layout, rGov);
+  const G = (PAVS.length && V3.ate > V3.de) ? gerar3DProjeto(cfg) : gerar3D(cfg, layout, rGov);
   if(!G || !G.faces.length){ $("vazio").hidden = false; return; }
   $("vazio").hidden = true;
+  ULT.alt3d = G.altura || 0;
+  ULT.pav3d = G.nPav || 1;
   if(!CAM.pronta) vistaGeral();
 
   const b = baseCam(), P = posCam();
@@ -2849,6 +2907,7 @@ const TIPO = {"laje-mac":"maciça","laje-nerv":"nervurada","laje-pre":"treliçad
 
 function render(){
   const cfg = cfgAtual();
+  const RP = projetoAtual(cfg);          // antes do desenho: o 3D e a barra usam
   $("stamp").textContent = val("projName") || ULT.nome || "—";
 
   const lajes = ELS.filter(e=>e.t.startsWith("laje")).map(e=>calcLaje(e,cfg));
@@ -2868,8 +2927,11 @@ function render(){
   const dimCh = layout.placaDim || {w:cfg.placa.b, h:cfg.placa.h};
   ULT.plano = planoDeCorte(ULT.pecas, dimCh.w, dimCh.h, cfg.girarChapa);
   desenhar(cfg, layout);
+  if(PAVS.length) fillPav3();
   if(V3.modo && $("n3d")) $("n3d").textContent =
-    `${fmt(ULT.n3d||0,0)} faces · ${fmt(CAM.dist,1)} m do pivô · escora ${rGov?fmt(rGov.Hl,2):"—"} m`;
+    `${fmt(ULT.n3d||0,0)} faces · ${fmt(CAM.dist,1)} m do pivô · `
+    + (ULT.pav3d > 1 ? `${ULT.pav3d} pavimentos, ${fmt(ULT.alt3d||0,1)} m de altura`
+                     : `escora ${rGov?fmt(rGov.Hl,2):"—"} m`);
 
   // ---- resumo
   const areaTot = lajes.reduce((s,r)=>s+r.area,0);
@@ -2912,17 +2974,10 @@ function render(){
   $("pQuant").innerHTML = paneQuant(lajes,vigas,cfg,layout);
   $("cQuant").textContent = `${fmt(GEO&&GEO.mask?nDes:nTab,0)} apoios`;
   if($("pProj")){
-    const aberta = $("gavProj") && $("gavProj").open;
-    if(!PAVS.length){ $("pProj").innerHTML = paneProjeto(cfg); $("cProj").textContent = "só com IFC"; }
-    else if(aberta){
-      $("pProj").innerHTML = paneProjeto(cfg);
-      const R = ULT.proj;
-      $("cProj").textContent = `${R.nPav} pavimentos · ${fmt(R.areaTot,0)} m² · ${fmt(R.escTot,0)} apoios`;
-    } else {
-      $("pProj").innerHTML = `<div class="note">Abra esta gaveta para calcular os
-        <b>${PAVS.length} pavimentos</b> do modelo, um a um, com a configuração que está na tela.</div>`;
-      $("cProj").textContent = `${PAVS.length} pavimentos`;
-    }
+    $("pProj").innerHTML = paneProjeto(cfg);
+    $("cProj").textContent = RP
+      ? `${RP.nPav} pavimentos · ${fmt(RP.areaTot,0)} m² · ${fmt(RP.escTot,0)} apoios · ${fmt(RP.prazo,0)} dias`
+      : "só com IFC";
   }
   $("pCorte").innerHTML = paneCorte(cfg);
   $("cCorte").textContent = ULT.plano
@@ -3208,6 +3263,21 @@ function montarOrcamentoUI(){
     </div>
     <div class="note" id="oResumo">—</div>
 
+    <div class="sub">Equipe e prazos</div>
+    <div class="grid3">
+      <div class="f"><label for="tEquipe">Equipe <span class="u">(pessoas)</span></label>${n("tEquipe",TEMPO.equipe,1)}</div>
+      <div class="f"><label for="tJornada">Jornada <span class="u">(h/dia)</span></label>${n("tJornada",TEMPO.jornada,0.2)}</div>
+      <div class="f"><label for="tMont">Montagem <span class="u">(m²/h·pessoa)</span></label>${n("tMont",TEMPO.prodMont,0.1,"área de fôrma montada por hora e por pessoa")}</div>
+    </div>
+    <div class="grid3">
+      <div class="f"><label for="tDesm">Desmontagem <span class="u">(m²/h·pessoa)</span></label>${n("tDesm",TEMPO.prodDesm,0.1)}</div>
+      <div class="f"><label for="tDP">Desforma parcial <span class="u">(dias)</span></label>${n("tDP",TEMPO.desfParcial,1,"idade em que sai a maior parte das escoras")}</div>
+      <div class="f"><label for="tDT">Desforma total <span class="u">(dias)</span></label>${n("tDT",TEMPO.desfTotal,1,"idade em que sai o remanescente")}</div>
+    </div>
+    <div class="note w">Produtividade são <b>valores de partida</b>, como os preços: variam com a equipe, o
+      sistema e a repetição do pavimento. Os prazos de desforma vêm do projeto estrutural — troque pelos
+      da prancha da sua obra, que é quem manda neles.</div>
+
     <div class="sub">Preços unitários</div>
     <div class="scroll"><table><thead><tr><th>Item</th><th class="num">Qtd / pav.</th><th class="num">No canteiro</th>
       <th class="num">Venda un.</th><th class="num">Aluguel un./mês</th><th class="num">Total venda</th><th class="num">Total aluguel</th>
@@ -3220,6 +3290,9 @@ function montarOrcamentoUI(){
   bind("oPav","nPav"); bind("oCiclo","ciclo"); bind("oJogos","jogos"); bind("oFrete","frete");
   bind("oViagens","viagens"); bind("oMont","montagem"); bind("oDesm","desmontagem");
   bind("oRep","reposicao"); bind("oImp","impostos");
+  const bindT = (id,k)=>{ $(id).addEventListener("input", ()=>{ TEMPO[k] = parseFloat($(id).value)||0; render(); }); };
+  bindT("tEquipe","equipe"); bindT("tJornada","jornada"); bindT("tMont","prodMont");
+  bindT("tDesm","prodDesm"); bindT("tDP","desfParcial"); bindT("tDT","desfTotal");
   $("oModo").addEventListener("change", ()=>{ ORC.modo = $("oModo").value; render(); });
   $("oModo").value = ORC.modo;
 
@@ -3636,7 +3709,23 @@ Equipamento a mobilizar, pelo pico entre pavimentos × ${R.jogos} jogo(s):
 ${R.itens.map(i=>`${i.nome.slice(0,34).padEnd(35)}${col(fmt(i.canteiro,0),8)} ${i.un}   (pico ${fmt(i.pico,0)} em ${i.ondePico})`).join(NL)}
 
 Ciclo ${fmt(R.ciclo,0)} dias/pavimento · ${fmt(R.prazo,0)} dias de estrutura · ${fmt(R.meses,1)} meses de locação
-As quantidades vêm do modelo; os preços da gaveta de orçamento são valores de partida, não cotação.</div>`;
+As quantidades vêm do modelo; os preços da gaveta de orçamento são valores de partida, não cotação.</div>
+
+<div class="bl"><b>MONTAGEM, DESFORMA E REESCORAMENTO</b>
+equipe de ${fmt(R.equipe,0)} em ${fmt(R.jornada,1)} h/dia · ${fmt(TEMPO.prodMont,2)} m²/h na montagem, ${fmt(TEMPO.prodDesm,2)} na desmontagem
+montagem ${fmt(R.hMontTot,0)} h e desmontagem ${fmt(R.hDesmTot,0)} h no projeto, em ${fmt(R.areaTot,0)} m² de fôrma
+desforma parcial aos ${fmt(TEMPO.desfParcial,0)} dias (${fmt(TEMPO.fracParcial*100,0)}% das escoras), total aos ${fmt(TEMPO.desfTotal,0)}
+reescoramento em malha de ${fmt(ULT.cfg?ULT.cfg.reMalha:2,2)} m, pico de ${fmt(R.reescPico,0)} escoras num pavimento
+${R.pavSimult} pavimentos escorados ao mesmo tempo · jogos necessários pelo prazo: ${R.jogosNec}
+Os prazos de desforma sao do projeto estrutural e prevalecem sobre qualquer estimativa daqui.
+
+${"pavimento".padEnd(27)}${col("monta",8)}${col("concreta",10)}${col("desf. 1",9)}${col("desf. tot",10)}${col("reescora",10)}
+${R.bons.map((l,i)=>{
+  const ini = i*R.ciclo, conc = ini + l.t.diaMont, p1 = conc + TEMPO.desfParcial;
+  const tot = conc + TEMPO.desfTotal, re = Math.max(tot, (i+1)*R.ciclo + TEMPO.desfParcial);
+  return `${l.P.nome.slice(0,26).padEnd(27)}${col(fmt(ini,0),8)}${col(fmt(conc,0),10)}${col(fmt(p1,0),9)}${col(fmt(tot,0),10)}${col(fmt(re,0),10)}`;
+}).join(NL)}
+dias corridos do início da estrutura, no ciclo de ${fmt(R.ciclo,0)} dias</div>`;
 }
 
 /* ===================================================================
@@ -3879,6 +3968,18 @@ function cfgDoPav(cfg, P){
   return Object.assign({}, cfg, {nivLaje:P.cota, nivApoio:P.base, hLajeRef, H});
 }
 
+// Montagem e desmontagem se medem por m² de fôrma; o resto do prazo é cura,
+// que não depende de equipe. O reescoramento é o Anexo C: malha e sobrecarga.
+function temposDoPav(area, cfg){
+  const equipe = Math.max(1, TEMPO.equipe), jornada = Math.max(1, TEMPO.jornada);
+  const hMont = area/Math.max(0.05, TEMPO.prodMont);
+  const hDesm = area/Math.max(0.05, TEMPO.prodDesm);
+  const malha = Math.max(0.5, cfg.reMalha);
+  return {area, hMont, hDesm,
+    diaMont: hMont/(equipe*jornada), diaDesm: hDesm/(equipe*jornada),
+    nReesc: Math.ceil(area/(malha*malha))};
+}
+
 function calcProjeto(cfg){
   const linhas = PAVS.map(P=>comPav(P, ()=>{
     if(P.semBase) return {P, semBase:true};
@@ -3890,7 +3991,8 @@ function calcProjeto(cfg){
     const rVigaGov = vigas.slice().sort((a,b)=>a.s-b.s)[0];
     const layout = gerarLayout(c, rGov, rVigaGov);
     const M = listaMateriais(lajes, vigas, c, layout);
-    return {P, c, rGov, M,
+    const t = temposDoPav(P.geo.mask.areaBruta, c);
+    return {P, c, rGov, M, t, layout,
       area:P.geo.mask.area, areaBruta:P.geo.mask.areaBruta, comp:P.geo.compVigas,
       nEsc:layout.escoras.length, nEscV:layout.escVigas.length,
       nPlacas:layout.placas.length, grade:[rGov.sViga, rGov.sEsc], H:c.H,
@@ -3931,8 +4033,19 @@ function calcProjeto(cfg){
   const consum = itens.filter(i=>i.consumivel).reduce((s,i)=>s+i.venda, 0);
   const frete = ORC.frete*Math.max(0, ORC.viagens);
   const servico = (ORC.montagem+ORC.desmontagem)*areaTot;
+  // Quantos jogos a obra precisa ter no canteiro: o escoramento de um
+  // pavimento só sai quando o concreto tem idade de desforma total, e nesse
+  // meio-tempo os de cima já foram montados. O número vem do prazo, não de
+  // palpite — se o jogo informado for menor, o equipamento está subestimado.
+  const jogosNec = Math.max(1, Math.ceil(TEMPO.desfTotal/ciclo));
+  const pavSimult = Math.max(1, Math.ceil(TEMPO.desfParcial/ciclo) + 1);
+  const hMontTot = bons.reduce((s,l)=>s+l.t.hMont, 0);
+  const hDesmTot = bons.reduce((s,l)=>s+l.t.hDesm, 0);
+  const reescPico = bons.length ? Math.max(...bons.map(l=>l.t.nReesc)) : 0;
   const base = m => m+consum+frete+servico;
   return {linhas, bons, itens, nPav, jogos, ciclo, meses, reuso, areaTot,
+    jogosNec, pavSimult, hMontTot, hDesmTot, reescPico,
+    equipe:Math.max(1,TEMPO.equipe), jornada:Math.max(1,TEMPO.jornada),
     areaLiq:bons.reduce((s,l)=>s+l.area, 0),
     compTot:bons.reduce((s,l)=>s+l.comp, 0),
     escTot:bons.reduce((s,l)=>s+l.nEsc+l.nEscV, 0),
@@ -3942,15 +4055,26 @@ function calcProjeto(cfg){
     prazo:nPav*ciclo};
 }
 
+// O projeto inteiro custa uns 250 ms em 22 pavimentos. Caro para refazer a
+// cada tecla, barato para refazer quando a configuração muda de verdade —
+// então o resultado fica guardado com a assinatura do que o gerou.
+function projetoAtual(cfg){
+  if(!PAVS.length) return null;
+  const chave = JSON.stringify([cfg, ORC, num("reusoComp"), TEMPO, PAVS.length, PAVS[0].nome]);
+  if(ULT.proj && ULT.projChave === chave) return ULT.proj;
+  ULT.projChave = chave;
+  return (ULT.proj = calcProjeto(cfg));
+}
+
 function paneProjeto(cfg){
   if(!PAVS.length) return `<div class="note">Importe um <b>IFC</b> para calcular o projeto inteiro.
     A prancha em DXF dá um pavimento de cada vez; o IFC traz todos, cada um com a sua cota,
     a sua área e o seu pé-direito.</div>`;
-  const R = ULT.proj = calcProjeto(cfg);
+  const R = projetoAtual(cfg);
   const linha = (l,i) => {
-    if(l.vazio) return `<tr style="opacity:.5"><td>${l.P.nome}</td><td colspan="9">sem pano de laje</td></tr>`;
+    if(l.vazio) return `<tr style="opacity:.5"><td>${l.P.nome}</td><td colspan="11">sem pano de laje</td></tr>`;
     if(l.semBase) return `<tr style="opacity:.6"><td>${l.P.nome}</td><td class="num">${fmt(l.P.cota,2)}</td>
-      <td colspan="8">é o nível mais baixo do modelo — apoia no solo, não em escora, e fica fora do cálculo</td></tr>`;
+      <td colspan="10">é o nível mais baixo do modelo — apoia no solo, não em escora, e fica fora do cálculo</td></tr>`;
     return `<tr${i===iPav?' style="background:var(--sel,rgba(127,127,127,.12))"':''}>
       <td><b>${l.P.nome}</b>${i===iPav?' <span class="pill ok">na tela</span>':''}</td>
       <td class="num">${fmt(l.P.cota,2)}</td><td class="num">${fmt(l.P.pd,2)}</td>
@@ -3960,6 +4084,11 @@ function paneProjeto(cfg){
       <td class="num">${fmt(l.nEsc+l.nEscV,0)}</td><td class="num">${fmt(l.nPlacas,0)}</td>
       <td class="num">${pill(l.fu)}</td></tr>`;
   };
+  // o pavimento tipo é o que mais repete área: é dele que sai o ciclo da obra
+  const rep = {};
+  R.bons.forEach(l=>{ const k = Math.round(l.areaBruta); (rep[k] = rep[k] || []).push(l); });
+  const fam = Object.values(rep).sort((a,b)=>b.length-a.length)[0] || [];
+  const tipico = fam[Math.floor(fam.length/2)] || R.bons[0];
   const pior = R.bons.slice().sort((a,b)=>b.fu-a.fu)[0];
   const maior = R.bons.slice().sort((a,b)=>(b.nEsc+b.nEscV)-(a.nEsc+a.nEscV))[0];
   return `
@@ -3971,13 +4100,16 @@ function paneProjeto(cfg){
       o mais baixo do modelo, que apoia no solo, e o que não tem pano de laje.` : ""}</div>
 
   <div class="scroll"><table><thead><tr>
-    <th>Pavimento</th><th class="numum">cota (m)</th><th class="numum">pé-dir.</th><th class="numum">H escora</th>
-    <th class="numum">m² fôrma</th><th class="numum">m viga</th><th class="numum">grade (m)</th>
-    <th class="numum">apoios</th><th class="numum">placas</th><th class="numum">aprov.</th>
+    <th>Pavimento</th><th class="num">cota (m)</th><th class="num">pé-dir.</th><th class="num">H escora</th>
+    <th class="num">m² fôrma</th><th class="num">m viga</th><th class="num">grade (m)</th>
+    <th class="num">apoios</th><th class="num">placas</th>
+    <th class="num">montar<br>dias</th><th class="num">desmontar<br>dias</th><th class="num">aprov.</th>
   </tr></thead><tbody>${R.linhas.map(linha).join("")}</tbody>
-  <tfoot><tr><th>Projeto</th><th class="numum">—</th><th class="numum">—</th><th class="numum">—</th>
-    <th class="numum">${fmt(R.areaTot,0)}</th><th class="numum">${fmt(R.compTot,0)}</th><th class="numum">—</th>
-    <th class="numum">${fmt(R.escTot,0)}</th><th class="numum">—</th><th class="numum">—</th></tr></tfoot></table></div>
+  <tfoot><tr><th>Projeto</th><th class="num">—</th><th class="num">—</th><th class="num">—</th>
+    <th class="num">${fmt(R.areaTot,0)}</th><th class="num">${fmt(R.compTot,0)}</th><th class="num">—</th>
+    <th class="num">${fmt(R.escTot,0)}</th><th class="num">—</th>
+    <th class="num">${fmt(R.hMontTot/(R.equipe*R.jornada),0)}</th>
+    <th class="num">${fmt(R.hDesmTot/(R.equipe*R.jornada),0)}</th><th class="num">—</th></tr></tfoot></table></div>
 
   <div class="sub">Equipamento a mobilizar</div>
   <div class="note">O jogo tem de atender o pavimento mais exigente, porque é o mesmo jogo que sobe.
@@ -3985,12 +4117,57 @@ function paneProjeto(cfg){
     ${R.jogos} jogo(s) simultâneo(s) — e não pela soma, que seria comprar a obra inteira de uma vez.
     O consumível é o contrário: gasta-se, então vem da soma dividida pelo reaproveitamento
     de ${fmt(R.reuso,0)} usos.</div>
-  <div class="scroll"><table><thead><tr><th>Item</th><th class="numum">pico/pav.</th><th>onde</th>
-    <th class="numum">soma dos pav.</th><th class="numum">a mobilizar</th></tr></thead><tbody>
+  <div class="scroll"><table><thead><tr><th>Item</th><th class="num">pico/pav.</th><th>onde</th>
+    <th class="num">soma dos pav.</th><th class="num">a mobilizar</th></tr></thead><tbody>
     ${R.itens.map(i=>`<tr><td>${i.nome}${i.consumivel?' <span class="pill warn">consumível</span>':''}</td>
       <td class="num">${fmt(i.pico,0)}</td><td style="font-size:11px;color:var(--ink-3)">${i.ondePico}</td>
       <td class="num">${fmt(i.soma,0)}</td><td class="num"><b>${fmt(i.canteiro,0)}</b></td></tr>`).join("")}
   </tbody></table></div>
+
+  <div class="sub">Montagem, desforma e reescoramento</div>
+  <div class="note">Montagem e desmontagem saem da produtividade por m² de fôrma com a equipe informada;
+    o resto do prazo é cura, que não depende de equipe. Os prazos de desforma são os do projeto
+    estrutural — <b>quem manda neles é o projetista da estrutura</b>, não esta calculadora.
+    ${R.jogos < R.jogosNec
+      ? `<br><b style="color:var(--bad)">Com ciclo de ${fmt(R.ciclo,0)} dias e desforma total aos
+         ${fmt(TEMPO.desfTotal,0)}, a obra precisa de ${R.jogosNec} jogos e está configurada com ${R.jogos}
+         — o equipamento acima está subestimado.</b>`
+      : `<br>Ciclo de ${fmt(R.ciclo,0)} dias e desforma total aos ${fmt(TEMPO.desfTotal,0)} dias:
+         ${R.jogosNec} jogo(s) bastam, e a obra está configurada com ${R.jogos}.`}</div>
+  <div class="scroll"><table><thead><tr><th>Etapa do ciclo</th><th class="num">Valor</th><th>Critério</th></tr></thead><tbody>
+    <tr><td>Equipe</td><td class="num">${fmt(R.equipe,0)} pessoas</td>
+        <td>${fmt(R.jornada,1)} h/dia · ${fmt(TEMPO.prodMont,2)} m²/h na montagem e ${fmt(TEMPO.prodDesm,2)} na desmontagem</td></tr>
+    <tr><td>Montagem do pavimento tipo</td><td class="num">${fmt(tipico.t.diaMont,1)} dias</td>
+        <td>${fmt(tipico.t.hMont,0)} homem-hora em ${fmt(tipico.areaBruta,0)} m² — ${tipico.P.nome}</td></tr>
+    <tr><td>Desmontagem do pavimento tipo</td><td class="num">${fmt(tipico.t.diaDesm,1)} dias</td>
+        <td>${fmt(tipico.t.hDesm,0)} homem-hora</td></tr>
+    <tr><td>Desforma parcial</td><td class="num">${fmt(TEMPO.desfParcial,0)} dias</td>
+        <td>retira ${fmt(TEMPO.fracParcial*100,0)}% das escoras; ciclo de remoção ≥ 14 dias pela 6.5</td></tr>
+    <tr><td>Desforma total</td><td class="num">${fmt(TEMPO.desfTotal,0)} dias</td>
+        <td>o remanescente só sai depois da desforma parcial da laje de cima</td></tr>
+    <tr><td>Reescoramento no pavimento tipo</td><td class="num">${fmt(tipico.t.nReesc,0)} escoras</td>
+        <td>malha ${fmt(cfg.reMalha,2)} m ≤ 2,0 m e sobrecarga ${fmt(cfg.reSobre,1)} kN/m² ≥ 1,0 — Anexo C</td></tr>
+    <tr><td>Pavimentos escorados ao mesmo tempo</td><td class="num">${R.pavSimult}</td>
+        <td>o de cima sendo montado enquanto o de baixo ainda carrega</td></tr>
+    <tr><td>Homem-hora do projeto</td><td class="num">${fmt(R.hMontTot+R.hDesmTot,0)} h</td>
+        <td>${fmt(R.hMontTot,0)} de montagem + ${fmt(R.hDesmTot,0)} de desmontagem em ${fmt(R.areaTot,0)} m²</td></tr>
+  </tbody></table></div>
+
+  <div class="sub">Linha do tempo, dia a dia</div>
+  <div class="scroll"><table><thead><tr><th>Pavimento</th><th class="num">monta no dia</th>
+    <th class="num">concreta</th><th class="num">desforma parcial</th><th class="num">desforma total</th>
+    <th class="num">reescora até</th></tr></thead><tbody>
+    ${R.bons.map((l,i)=>{
+      const ini = i*R.ciclo, conc = ini + l.t.diaMont, p1 = conc + TEMPO.desfParcial;
+      const tot = conc + TEMPO.desfTotal;
+      const reesc = Math.max(tot, (i+1)*R.ciclo + TEMPO.desfParcial);
+      return `<tr><td>${l.P.nome}</td><td class="num">${fmt(ini,0)}</td><td class="num">${fmt(conc,0)}</td>
+        <td class="num">${fmt(p1,0)}</td><td class="num">${fmt(tot,0)}</td><td class="num">${fmt(reesc,0)}</td></tr>`;
+    }).join("")}
+  </tbody></table></div>
+  <div class="note w">Dias corridos a partir do início da estrutura, no ciclo informado. Não entram chuva,
+    feriado nem atraso de material, e a verificação da capacidade dos pavimentos inferiores nas idades de
+    aplicação das cargas das concretagens posteriores (C.3 c e d) é do projetista da estrutura.</div>
 
   <div class="sub">Prazo e custo do projeto</div>
   <div class="scroll"><table><tbody>
@@ -4100,6 +4277,7 @@ function trocarPav(i, redesenhar){
   $("pavSel").value = String(i);
   $("escala").value = "1"; $("escalaFator").value = 1;
   CAM.pronta = false; V3.cx = V3.cy = null;
+  if(V3.ate <= V3.de){ const k = indiceNoProjeto(); V3.de = V3.ate = k; }
   enquadrar();
   if(redesenhar !== false) render();
 }
@@ -4422,6 +4600,35 @@ $("geral3").onclick = ()=>{ vistaGeral(); render(); };
 $("dentro3").onclick = ()=>{ entrarNoModelo(); render(); };
 $("fov3").addEventListener("input", ()=>{ CAM.fov = +val("fov3"); render(); });
 $("rec3").addEventListener("input", ()=>{ V3.recorte = Math.max(4, num("rec3")); render(); });
+// faixa de pavimentos no 3D: as opções são os pavimentos que entram no cálculo
+function fillPav3(){
+  const R = ULT.proj;
+  const mostra = !!(R && R.bons.length > 1);
+  if($("box3Pav")) $("box3Pav").hidden = !mostra;
+  if($("sepPav3")) $("sepPav3").hidden = !mostra;
+  if(!mostra) return;
+  const op = R.bons.map((l,i)=>`<option value="${i}">${l.P.nome}</option>`).join("");
+  ["pav3De","pav3Ate"].forEach(id=>{ if($(id).dataset.sig !== op){ $(id).dataset.sig = op; $(id).innerHTML = op; } });
+  V3.de = Math.max(0, Math.min(V3.de, R.bons.length-1));
+  V3.ate = Math.max(V3.de, Math.min(V3.ate, R.bons.length-1));
+  $("pav3De").value = String(V3.de); $("pav3Ate").value = String(V3.ate);
+}
+// o pavimento da tela, na numeração dos que entram no cálculo
+function indiceNoProjeto(){
+  const R = ULT.proj;
+  if(!R || iPav < 0) return 0;
+  const k = R.bons.findIndex(l=>l.P === PAVS[iPav]);
+  return k < 0 ? 0 : k;
+}
+$("pav3De").addEventListener("change", ()=>{ V3.de = +$("pav3De").value;
+  if(V3.ate < V3.de) V3.ate = V3.de;
+  CAM.pronta = false; render(); });
+$("pav3Ate").addEventListener("change", ()=>{ V3.ate = +$("pav3Ate").value;
+  if(V3.de > V3.ate) V3.de = V3.ate;
+  CAM.pronta = false; render(); });
+$("pav3Tudo").onclick = ()=>{ const R = ULT.proj; if(!R) return;
+  V3.de = 0; V3.ate = R.bons.length-1; CAM.pronta = false; render(); };
+$("pav3Um").onclick = ()=>{ V3.de = V3.ate = indiceNoProjeto(); CAM.pronta = false; render(); };
 ["v3Laje","v3Viga","v3Pil","v3Placa","v3Barr","v3Long","v3Esc"].forEach(id=>
   $(id).addEventListener("change", render));
 $("file").onchange = e => { if(e.target.files[0]) carregarArquivo(e.target.files[0]); };
