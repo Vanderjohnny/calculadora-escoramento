@@ -66,11 +66,24 @@ entram numa linha do tempo pavimento a pavimento, em dias corridos do início da
 sai quantos jogos a obra precisa de verdade: se o informado for menor, o app avisa que o
 equipamento está subestimado. Os prazos de desforma são do projeto estrutural e prevalecem.
 
-O **3D mostra o prédio inteiro** com o escoramento de cada pavimento, filtrável por faixa de
-pavimentos e pelas mesmas caixas de peça da vista de um andar (laje, vigas, pilares, placas,
-barrotes, longarinas, escoras). Acima de dois pavimentos a escora vira um retângulo de frente para
-a câmera, uma face no lugar de doze, para a tela aguentar: a torre de 21 pavimentos do exemplo dá
-24 mil faces, ou 11 mil sem placas e barrotes.
+## Subir e descer o prédio
+
+Acima do desenho ficam duas setas, **▲** e **▼**. A importação abre no pavimento mais baixo que
+leva escora — por onde a obra começa — e a seta de subir percorre o prédio na ordem em que ele é
+construído. A planta 2D e o 3D mostram sempre o mesmo pavimento, com as mesmas caixas de peça
+(laje, vigas, pilares, placas, barrotes, longarinas, escoras).
+
+No 3D aparecem **dois pavimentos de cada vez**: o que está sendo concretado e o que lhe serve de
+apoio, que são os dois que carregam ao mesmo tempo. A caixa **o prédio inteiro** abre todos.
+
+Logo abaixo do desenho, uma tira mostra o que está na tela: área de fôrma, metros de viga, apoios,
+placas, dias de montagem e desmontagem, e o custo — serviço, equipamento e consumível. Na planta
+é o pavimento desenhado; no 3D, o par.
+
+O desenho é leve porque a laje sai do contorno do pavimento, não de um retângulo do tamanho da
+janela, e porque com três pavimentos ou mais a escora vira um retângulo de frente para a câmera e
+o que fica debaixo da laje (placas, barrotes, longarinas) sai do desenho. A torre de 21 pavimentos
+do exemplo dá 9,5 mil faces; dois pavimentos tipo, 4,3 mil.
 
 O nível mais baixo do modelo fica de fora: ele apoia no solo, não em escora.
 

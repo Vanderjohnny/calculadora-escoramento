@@ -244,15 +244,6 @@ footer.sheet b{color:var(--ink-2)}
           style="width:60px;padding:3px 5px;font-size:11.5px" title="lado da janela em metros; menor = mais leve"> m</label>
         <span id="n3d" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)"></span>
       </div>
-      <div class="sep" id="sepPav3" hidden></div>
-      <div class="g" id="box3Pav" hidden>
-        <label class="chk">pavimentos
-          <select id="pav3De" style="width:auto;padding:3px 5px;font-size:11.5px"></select>
-          <span style="color:var(--ink-3)">até</span>
-          <select id="pav3Ate" style="width:auto;padding:3px 5px;font-size:11.5px"></select></label>
-        <button id="pav3Tudo">o prédio inteiro</button>
-        <button id="pav3Um">só o da tela</button>
-      </div>
     </div>
     <div class="ctrl" id="ctrl2d">
       <div class="g">
@@ -283,6 +274,17 @@ footer.sheet b{color:var(--ink-2)}
         <button id="fit">enquadrar</button>
       </div>
     </div>
+    <div class="ctrl" id="barPav" hidden style="gap:14px">
+      <button id="pavSobe" title="pavimento de cima" style="font-size:19px;line-height:1;padding:7px 16px">&#9650;</button>
+      <button id="pavDesce" title="pavimento de baixo" style="font-size:19px;line-height:1;padding:7px 16px">&#9660;</button>
+      <div style="min-width:220px">
+        <div id="pavNome" style="font-family:var(--f-disp);font-size:15px;font-weight:700;letter-spacing:.04em;line-height:1.15">—</div>
+        <div id="pavSob" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)">—</div>
+      </div>
+      <div class="sep"></div>
+      <label class="chk"><input type="checkbox" id="pavTudo"> o prédio inteiro</label>
+      <span id="pavConta" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)"></span>
+    </div>
     <div class="viewport" id="vp">
       <svg id="svg" aria-label="Prancha de escoramento"></svg>
       <div class="vazio" id="vazio" hidden>
@@ -293,6 +295,7 @@ footer.sheet b{color:var(--ink-2)}
       </div>
       <div class="zoomhint" id="zoomhint">roda = zoom · arrastar = mover · clicar = centro do 3D</div>
     </div>
+    <div id="orcPav" hidden></div>
     <div class="legenda" id="legenda"></div>
   </div>
 
@@ -2232,7 +2235,15 @@ function gerarLayout(cfg, rGov, rVigaGov){
    Vetorial de propósito: sai no PDF junto com o resto, e a linguagem
    gráfica combina com a prancha. Painter's algorithm, sem biblioteca.
    =================================================================== */
-const V3 = {modo:false, recorte:60, cx:null, cy:null, de:0, ate:0, simples:false};
+// O que se vê é sempre o pavimento sendo concretado e o que lhe serve de
+// apoio: são os dois que carregam ao mesmo tempo. "tudo" abre o prédio todo.
+const V3 = {modo:false, recorte:60, cx:null, cy:null, topo:0, tudo:false, simples:false};
+function faixaPav(R){
+  if(!R || !R.bons.length) return [0,0];
+  if(V3.tudo) return [0, R.bons.length-1];
+  const t = Math.max(0, Math.min(V3.topo, R.bons.length-1));
+  return [Math.max(0, t-1), t];
+}
 
 // Caixa alinhada aos eixos: 6 faces com vértices em ordem anti-horária vista de fora.
 function caixa(x0,y0,z0, dx,dy,dz, cor, cls){
@@ -2274,6 +2285,53 @@ function prisma(pts,z0,dz,cor,cls){
     f.push({pts:[base[i],base[j],topo[j],topo[i]], cor, cls, face:"lado"});
   }
   return f;
+}
+
+/* A laje era um retângulo do tamanho da janela de recorte — uma chapa cinza
+   muito maior que o pavimento, e cara de desenhar com o prédio inteiro na
+   tela. Agora sai da máscara: as células de laje viram os maiores retângulos
+   que cabem nelas, que é o contorno de verdade do pavimento. */
+function retangulosDaLaje(M, passo){
+  passo = Math.max(1, passo|0);
+  M.rets = M.rets || {};
+  if(M.rets[passo]) return M.rets[passo];
+  const {cell, bb, msk} = M;
+  // malha grossa: o bloco é laje se a maior parte das células dele for laje.
+  // Com o prédio inteiro na tela, a borda exata da laje não se enxerga, e
+  // cada célula a menos é um retângulo a menos para desenhar.
+  const W = Math.ceil(M.W/passo), H = Math.ceil(M.H/passo);
+  const livre = new Uint8Array(W*H);
+  for(let r = 0; r < H; r++) for(let c = 0; c < W; c++){
+    let n = 0, t = 0;
+    for(let j = 0; j < passo; j++) for(let k = 0; k < passo; k++){
+      const rr = r*passo+j, cc = c*passo+k;
+      if(rr >= M.H || cc >= M.W) continue;
+      t++; if(msk[rr*M.W+cc]) n++;
+    }
+    livre[r*W+c] = (t && n*2 >= t) ? 1 : 0;
+  }
+  const lado = cell*passo, rets = [];
+  for(let r = 0; r < H; r++){
+    for(let c = 0; c < W; c++){
+      if(!livre[r*W+c]) continue;
+      let w = 0;
+      while(c+w < W && livre[r*W+c+w]) w++;
+      let h = 1;
+      cresce: while(r+h < H){
+        for(let k = 0; k < w; k++) if(!livre[(r+h)*W+c+k]) break cresce;
+        h++;
+      }
+      for(let j = 0; j < h; j++) for(let k = 0; k < w; k++) livre[(r+j)*W+c+k] = 0;
+      rets.push({x:bb.x0 + c*lado, y:bb.y0 + r*lado, w:w*lado, h:h*lado});
+      c += w-1;
+    }
+  }
+  return (M.rets[passo] = rets);
+}
+// chapa plana: duas faces, uma para cada lado, no lugar das seis da caixa
+function tampo(x,y,z,dx,dy,cor,cls){
+  const q = [[x,y,z],[x+dx,y,z],[x+dx,y+dy,z],[x,y+dy,z]];
+  return [{pts:q, cor, cls, face:"topo"}, {pts:q.slice().reverse(), cor, cls, face:"base"}];
 }
 
 function gerar3D(cfg, layout, rGov){
@@ -2350,11 +2408,11 @@ function gerar3D(cfg, layout, rGov){
     });
   }
   // longarinas e barrotes
-  if(chk("v3Long")) layout.longas.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zLong,0.15,hLong,"longa","longarina")); });
-  if(chk("v3Barr")) layout.barrotes.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zBar,0.08,hBar,"barr","barrote")); });
+  if(chk("v3Long") && !V3.simples) layout.longas.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zLong,0.15,hLong,"longa","longarina")); });
+  if(chk("v3Barr") && !V3.simples) layout.barrotes.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zBar,0.08,hBar,"barr","barrote")); });
   // placas
   // placas no tamanho real do corte, não na célula da grade
-  if(chk("v3Placa")){
+  if(chk("v3Placa") && !V3.simples){
     const fonte = (ULT.pecas && ULT.pecas.length)
       ? ULT.pecas.map(q=>({x:q.x, y:q.y, w:q.w, h:q.h, rec:!q.inteira}))
       : layout.placas.map(p=>({x:p.x, y:p.y, w:p.w, h:p.h, rec:!p.cheia}));
@@ -2372,8 +2430,13 @@ function gerar3D(cfg, layout, rGov){
     const hv = alturaViga(e.larg);
     F.push(...barra(e.a,e.b, zTopo-hv, e.larg, hv, "viga","viga"));
   });
-  // laje por cima
-  if(chk("v3Laje")) F.push(...caixa(R.x0,R.y0,zLaje, R.x1-R.x0, R.y1-R.y0, hLaje, "laje","laje"));
+  // laje por cima, no contorno do pavimento e não na janela de recorte
+  if(chk("v3Laje")) retangulosDaLaje(M, V3.simples ? 6 : 3).forEach(q=>{
+    const x0 = Math.max(R.x0, q.x), x1 = Math.min(R.x1, q.x+q.w);
+    const y0 = Math.max(R.y0, q.y), y1 = Math.min(R.y1, q.y+q.h);
+    if(x1-x0 < 0.05 || y1-y0 < 0.05) return;
+    F.push(...tampo(x0,y0,zLaje+hLaje, x1-x0, y1-y0, "laje","laje"));
+  });
   return {faces:F, R, H, zLaje, hLaje};
 }
 
@@ -2383,8 +2446,7 @@ function gerar3D(cfg, layout, rGov){
 function gerar3DProjeto(cfg){
   const R = projetoAtual(cfg);
   if(!R || !R.bons.length) return null;
-  const de = Math.max(0, Math.min(V3.de, R.bons.length-1));
-  const ate = Math.max(de, Math.min(V3.ate, R.bons.length-1));
+  const [de, ate] = faixaPav(R);
   const sel = R.bons.slice(de, ate+1);
   V3.simples = sel.length > 2;
   const F = [];
@@ -2427,8 +2489,14 @@ function vistaGeral(){
   const M = GEO && GEO.mask;
   const alt = ULT.alt3d || 0;                    // altura do trecho de prédio na tela
   CAM.tx = M ? M.cxm : 0; CAM.ty = M ? M.cym : 0; CAM.tz = 1.4 + alt/2;
-  CAM.yaw = Math.PI*0.25; CAM.pitch = alt > 8 ? -0.25 : -0.42;
-  CAM.dist = Math.max(diagPlano()*0.80, alt*1.25);
+  CAM.yaw = Math.PI*0.25; CAM.pitch = alt > 8 ? -0.22 : -0.42;
+  // A projeção é quadrada e o quadro recorta pelo lado menor, então numa tela
+  // larga o que cabe na vertical encolhe na proporção. Sem isto o prédio sai
+  // cortado em cima e embaixo.
+  const el = $("vp");
+  const asp = (el && el.clientHeight) ? Math.max(1, el.clientWidth/el.clientHeight) : 1.7;
+  const tgV = Math.tan(CAM.fov*Math.PI/360)/asp;
+  CAM.dist = Math.max(diagPlano()*0.80, alt ? (alt/2)/tgV*1.18 : 0);
   CAM.pronta = true;
 }
 function entrarNoModelo(){
@@ -2454,7 +2522,7 @@ function cortaPerto(pts, near){
 function desenhar3D(cfg, layout, rGov){
   const svg = $("svg");
   while(svg.firstChild) svg.removeChild(svg.firstChild);
-  const G = (PAVS.length && V3.ate > V3.de) ? gerar3DProjeto(cfg) : gerar3D(cfg, layout, rGov);
+  const G = PAVS.length ? gerar3DProjeto(cfg) : gerar3D(cfg, layout, rGov);
   if(!G || !G.faces.length){ $("vazio").hidden = false; return; }
   $("vazio").hidden = true;
   ULT.alt3d = G.altura || 0;
@@ -2927,7 +2995,7 @@ function render(){
   const dimCh = layout.placaDim || {w:cfg.placa.b, h:cfg.placa.h};
   ULT.plano = planoDeCorte(ULT.pecas, dimCh.w, dimCh.h, cfg.girarChapa);
   desenhar(cfg, layout);
-  if(PAVS.length) fillPav3();
+  fillPav3();            // também esconde a barra quando a prancha não tem pavimentos
   if(V3.modo && $("n3d")) $("n3d").textContent =
     `${fmt(ULT.n3d||0,0)} faces · ${fmt(CAM.dist,1)} m do pivô · `
     + (ULT.pav3d > 1 ? `${ULT.pav3d} pavimentos, ${fmt(ULT.alt3d||0,1)} m de altura`
@@ -4037,6 +4105,19 @@ function calcProjeto(cfg){
   // pavimento só sai quando o concreto tem idade de desforma total, e nesse
   // meio-tempo os de cima já foram montados. O número vem do prazo, não de
   // palpite — se o jogo informado for menor, o equipamento está subestimado.
+  // Custo que cabe a um pavimento: o serviço de montar e desmontar, o
+  // aluguel do equipamento no tempo em que ele fica ali, e o consumível
+  // gasto na passagem. Não entra a compra do jogo, que é da obra inteira.
+  bons.forEach(l=>{
+    const serv = (ORC.montagem+ORC.desmontagem)*l.areaBruta;
+    let alug = 0, cons = 0;
+    l.M.itens.forEach(it=>{
+      const pr = PRECOS[it.k] || {venda:0, aluguel:0};
+      if(it.consumivel) cons += it.qtd*pr.venda/reuso;
+      else alug += it.qtd*jogos*pr.aluguel*(ciclo/30);
+    });
+    l.custo = {serv, alug, cons, tot:serv+alug+cons};
+  });
   const jogosNec = Math.max(1, Math.ceil(TEMPO.desfTotal/ciclo));
   const pavSimult = Math.max(1, Math.ceil(TEMPO.desfParcial/ciclo) + 1);
   const hMontTot = bons.reduce((s,l)=>s+l.t.hMont, 0);
@@ -4059,7 +4140,9 @@ function calcProjeto(cfg){
 // cada tecla, barato para refazer quando a configuração muda de verdade —
 // então o resultado fica guardado com a assinatura do que o gerou.
 function projetoAtual(cfg){
-  if(!PAVS.length) return null;
+  // prancha nova sem pavimentos: o projeto do modelo anterior não pode ficar
+  // guardado, ou a barra de pavimento continua na tela
+  if(!PAVS.length){ ULT.proj = null; ULT.projChave = null; return null; }
   const chave = JSON.stringify([cfg, ORC, num("reusoComp"), TEMPO, PAVS.length, PAVS[0].nome]);
   if(ULT.proj && ULT.projChave === chave) return ULT.proj;
   ULT.projChave = chave;
@@ -4277,7 +4360,8 @@ function trocarPav(i, redesenhar){
   $("pavSel").value = String(i);
   $("escala").value = "1"; $("escalaFator").value = 1;
   CAM.pronta = false; V3.cx = V3.cy = null;
-  if(V3.ate <= V3.de){ const k = indiceNoProjeto(); V3.de = V3.ate = k; }
+  const k3 = indiceNoProjeto();
+  if(k3 >= 0) V3.topo = k3;
   enquadrar();
   if(redesenhar !== false) render();
 }
@@ -4298,12 +4382,11 @@ async function carregarIFC(f){
   fillPavSel();
   ORC.nPav = PAVS.length;
   if($("oPav")) $("oPav").value = PAVS.length;
-  // o pavimento que mais se repete é o tipo, e é por ele que se dimensiona o jogo
-  const rep = {};
-  PAVS.forEach((P,i)=>{ const k = `${Math.round(P.geo.mask.areaBruta)}|${Math.round(P.geo.compVigas)}`;
-    (rep[k] = rep[k] || []).push(i); });
-  const fam = Object.values(rep).sort((a,b)=>b.length-a.length)[0];
-  trocarPav(fam[Math.floor(fam.length/2)], false);
+  // Começa no mais baixo que leva escora: é por onde a obra começa, e daí a
+  // seta de subir percorre o prédio na ordem em que ele é construído.
+  const base = PAVS.findIndex(P=>!P.semBase);
+  V3.topo = 0; V3.tudo = false;
+  trocarPav(base < 0 ? 0 : base, false);
   const fora = Object.entries(r.fora||{});
   const nL = PAVS.reduce((s,P)=>s+P.geo.panos.length, 0);
   const nV = PAVS.reduce((s,P)=>s+P.geo.eixos.length, 0);
@@ -4316,8 +4399,9 @@ async function carregarIFC(f){
     + `${r.unidade.nome} (×${fmt(r.unidade.fator,3)}).<br>`
     + `<b>${PAVS.length} pavimentos</b> de ${fmt(PAVS[0].cota,2)} a ${fmt(PAVS[PAVS.length-1].cota,2)} m, `
     + `com ${nL} panos de laje e ${nV} trechos de viga. `
-    + `Na tela: <b>${PAVS[iPav].nome}</b> — ${fam.length > 1 ? `o tipo, que repete ${fam.length} vezes` : "o maior pano"}. `
-    + `Troque em <b>Pavimento do modelo</b>; o projeto inteiro está na gaveta <b>Projeto completo</b>.`
+    + `Na tela: <b>${PAVS[iPav].nome}</b>, o mais baixo que leva escora. `
+    + `Suba e desça com as setas acima do desenho — a planta e o 3D mostram o pavimento sendo `
+    + `concretado e o que lhe serve de apoio. O projeto inteiro está na gaveta <b>Projeto completo</b>.`
     + (fora.length ? `<br><span style="color:var(--ink-3)">Fora do cálculo: `
         + fora.map(([k,n])=>`${n} ${k.replace(/^IFC/,"").toLowerCase()}`).join(", ")
         + ` — fundação e peça fora de pavimento não se escoram como laje.</span>` : "")
@@ -4600,18 +4684,50 @@ $("geral3").onclick = ()=>{ vistaGeral(); render(); };
 $("dentro3").onclick = ()=>{ entrarNoModelo(); render(); };
 $("fov3").addEventListener("input", ()=>{ CAM.fov = +val("fov3"); render(); });
 $("rec3").addEventListener("input", ()=>{ V3.recorte = Math.max(4, num("rec3")); render(); });
-// faixa de pavimentos no 3D: as opções são os pavimentos que entram no cálculo
+// Barra do pavimento: o nome do que está sendo concretado, o que lhe serve
+// de apoio, e o orçamento dos dois que estão na tela.
 function fillPav3(){
   const R = ULT.proj;
   const mostra = !!(R && R.bons.length > 1);
-  if($("box3Pav")) $("box3Pav").hidden = !mostra;
-  if($("sepPav3")) $("sepPav3").hidden = !mostra;
+  if($("barPav")) $("barPav").hidden = !mostra;
+  if($("orcPav")) $("orcPav").hidden = !mostra;
   if(!mostra) return;
-  const op = R.bons.map((l,i)=>`<option value="${i}">${l.P.nome}</option>`).join("");
-  ["pav3De","pav3Ate"].forEach(id=>{ if($(id).dataset.sig !== op){ $(id).dataset.sig = op; $(id).innerHTML = op; } });
-  V3.de = Math.max(0, Math.min(V3.de, R.bons.length-1));
-  V3.ate = Math.max(V3.de, Math.min(V3.ate, R.bons.length-1));
-  $("pav3De").value = String(V3.de); $("pav3Ate").value = String(V3.ate);
+  V3.topo = Math.max(0, Math.min(V3.topo, R.bons.length-1));
+  const [de, ate] = faixaPav(R);
+  const alvo = R.bons[V3.topo], apoio = V3.topo > 0 ? R.bons[V3.topo-1] : null;
+  $("pavTudo").checked = V3.tudo;
+  $("pavTudo").parentNode.title = V3.tudo
+    ? "pesado de girar: com o prédio todo a tela desenha dezenas de milhares de faces"
+    : "mostra todos os pavimentos de uma vez; fica pesado de girar";
+  $("pavNome").textContent = V3.tudo ? "O prédio inteiro" : alvo.P.nome;
+  $("pavSob").textContent = V3.tudo
+    ? `${R.bons.length} pavimentos · ${fmt(R.bons[R.bons.length-1].P.cota - R.bons[0].P.base, 1)} m de altura`
+    : (apoio ? `concretando a ${fmt(alvo.P.cota,2)} m · escorado sobre ${apoio.P.nome}`
+             : `concretando a ${fmt(alvo.P.cota,2)} m · apoio no pavimento de baixo`);
+  $("pavSobe").disabled = V3.tudo || V3.topo >= R.bons.length-1;
+  $("pavDesce").disabled = V3.tudo || V3.topo <= 0;
+  $("pavConta").textContent = `${V3.topo+1} de ${R.bons.length}`;
+
+  // a tira diz respeito ao que está desenhado: a planta é de um pavimento só,
+  // o 3D mostra o par que carrega junto
+  const [od, oa] = V3.modo ? [de, ate] : [V3.topo, V3.topo];
+  const mostrados = R.bons.slice(od, oa+1);
+  const soma = k => mostrados.reduce((t,l)=>t + k(l), 0);
+  const cel = (rot,v,sub) => `<div class="kpi" style="padding:8px 12px">
+    <div class="k">${rot}</div><div class="v" style="font-size:20px">${v}</div>
+    <div class="s">${sub||""}</div></div>`;
+  $("orcPav").className = "kpis";
+  $("orcPav").style.margin = "0";
+  $("orcPav").style.borderWidth = "1px 0 0";
+  $("orcPav").innerHTML =
+      cel("Na tela", mostrados.length === 1 ? "1 pavimento" : `${mostrados.length} pavimentos`,
+          mostrados.map(l=>l.P.nome).join(" · ").slice(0,60))
+    + cel("Fôrma", fmt(soma(l=>l.areaBruta),0), "m² · " + fmt(soma(l=>l.comp),0) + " m de viga")
+    + cel("Apoios", fmt(soma(l=>l.nEsc+l.nEscV),0), fmt(soma(l=>l.nPlacas),0) + " placas")
+    + cel("Montagem", fmt(soma(l=>l.t.diaMont),1), "dias · " + fmt(soma(l=>l.t.diaDesm),1) + " para desmontar")
+    + cel("Serviço", BRL(soma(l=>l.custo.serv)), "montagem e desmontagem")
+    + cel("Equipamento", BRL(soma(l=>l.custo.alug)), "aluguel no ciclo · " + BRL(soma(l=>l.custo.cons)) + " de consumível")
+    + cel("Custo na tela", BRL(soma(l=>l.custo.tot)), mostrados.length > 1 ? "somando os pavimentos" : "neste pavimento");
 }
 // o pavimento da tela, na numeração dos que entram no cálculo
 function indiceNoProjeto(){
@@ -4620,15 +4736,20 @@ function indiceNoProjeto(){
   const k = R.bons.findIndex(l=>l.P === PAVS[iPav]);
   return k < 0 ? 0 : k;
 }
-$("pav3De").addEventListener("change", ()=>{ V3.de = +$("pav3De").value;
-  if(V3.ate < V3.de) V3.ate = V3.de;
+// subir e descer: a planta 2D e o 3D acompanham, porque é o mesmo pavimento
+function irPav(d){
+  const R = ULT.proj;
+  if(!R || !R.bons.length) return;
+  V3.tudo = false;
+  V3.topo = Math.max(0, Math.min(V3.topo + d, R.bons.length-1));
+  CAM.pronta = false; V3.cx = V3.cy = null;
+  const k = PAVS.indexOf(R.bons[V3.topo].P);
+  if(k >= 0 && k !== iPav) trocarPav(k); else render();
+}
+$("pavSobe").onclick = ()=>irPav(1);
+$("pavDesce").onclick = ()=>irPav(-1);
+$("pavTudo").addEventListener("change", ()=>{ V3.tudo = $("pavTudo").checked;
   CAM.pronta = false; render(); });
-$("pav3Ate").addEventListener("change", ()=>{ V3.ate = +$("pav3Ate").value;
-  if(V3.de > V3.ate) V3.de = V3.ate;
-  CAM.pronta = false; render(); });
-$("pav3Tudo").onclick = ()=>{ const R = ULT.proj; if(!R) return;
-  V3.de = 0; V3.ate = R.bons.length-1; CAM.pronta = false; render(); };
-$("pav3Um").onclick = ()=>{ V3.de = V3.ate = indiceNoProjeto(); CAM.pronta = false; render(); };
 ["v3Laje","v3Viga","v3Pil","v3Placa","v3Barr","v3Long","v3Esc"].forEach(id=>
   $(id).addEventListener("change", render));
 $("file").onchange = e => { if(e.target.files[0]) carregarArquivo(e.target.files[0]); };
