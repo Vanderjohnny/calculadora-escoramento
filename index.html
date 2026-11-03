@@ -211,7 +211,7 @@ footer.sheet b{color:var(--ink-2)}
     <div id="boxPav" hidden><label for="pavSel">Pavimento do modelo</label>
       <select id="pavSel"></select></div>
     <div><label>Importar prancha ou modelo</label>
-      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.ifc,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
+      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.dwg,.ifc,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -278,8 +278,9 @@ footer.sheet b{color:var(--ink-2)}
       <svg id="svg" aria-label="Prancha de escoramento"></svg>
       <div class="vazio" id="vazio" hidden>
         <b>Sem geometria de planta</b>
-        <div>A grade de escoramento precisa do desenho. No AutoCAD rode <span style="font-family:var(--f-num)">DXFOUT</span>
-        e solte o DXF acima — o PDF plotado traz só as marcas, sem geometria.</div>
+        <div>A grade de escoramento precisa do desenho: solte acima a planta de formas em
+        <b>DWG</b> ou <b>DXF</b>, ou o modelo estrutural em <b>IFC</b> — o PDF plotado traz só as marcas,
+        sem geometria.</div>
       </div>
       <div class="zoomhint" id="zoomhint">roda = zoom · arrastar = mover · clicar = centro do 3D</div>
     </div>
@@ -1087,6 +1088,14 @@ function lerIFC(txt){
     } else if(t === "IFCFACETEDBREP" || t === "IFCADVANCEDBREP" || t === "IFCMANIFOLDSOLIDBREP"){
       const casca = rf(f[0]);
       if(casca) out.push({k:"brep", faces:facesDe(casca, M)});
+    } else if(t === "IFCTRIANGULATEDFACESET"){
+      const pl = rf(f[0]);
+      const coord = pl ? lst(C(pl)[0]).map(q=>{ const v = lst(q).map(nu); return [v[0]||0,v[1]||0,v[2]||0]; }) : [];
+      const faces = lst(f[3]).map(q=>{
+        const ix = lst(q).map(nu);
+        return {fora:ix.map(n=>levar(M, coord[n-1] || [0,0,0])), dentro:[]};
+      }).filter(fa=>fa.fora.length >= 3);
+      if(faces.length) out.push({k:"brep", faces});
     } else if(t === "IFCPOLYGONALFACESET"){
       const pl = rf(f[0]), coord = pl ? lst(C(pl)[0]).map(s=>{ const v = lst(s).map(nu); return [v[0]||0,v[1]||0,v[2]||0]; }) : [];
       const faces = refs(f[3]).map(ix=>{
@@ -3739,6 +3748,18 @@ function lerMarcas(itens){
 // Corte esquemático: três colunas em x fixo — cota, número da linha, nome.
 // A cota fica meia linha acima do nome, então o vizinho mais próximo é sempre o
 // número da linha. Pareia por coluna e por ordem vertical.
+// O degrau que mais se repete entre níveis consecutivos: num prédio é o
+// pé-direito do pavimento tipo.
+function degrauTipico(niv){
+  if(!niv || niv.length < 3) return 0;
+  const cont = {};
+  for(let i = 1; i < niv.length; i++){
+    const d = Math.round((niv[i][1] - niv[i-1][1])/5)*5;        // agrupa de 5 em 5 cm
+    if(d >= 200 && d <= 600) cont[d] = (cont[d]||0) + 1;
+  }
+  const par = Object.entries(cont).sort((a,b)=>b[1]-a[1] || +a[0]-+b[0])[0];
+  return par && par[1] >= 2 ? +par[0] : 0;
+}
 function lerNiveis(itens){
   const nums = itens.filter(i=>/^-?\d{1,5}$/.test(i.s) && i.x!=null);
   let noms = itens.filter(i=>/^(FUNDA|T[ÉE]RREO|PAV|SUBSOLO|COB|FUNDO|TOPO|MEZAN|LAZER|GARAG)/i.test(i.s) && i.x!=null);
@@ -3815,9 +3836,17 @@ function elsDoPav(P){
   });
   Object.values(gv).sort((a,b)=>b.comp-a.comp).forEach(o=>els.push({
     id:`V${o.b}×${o.h}`, t:"viga", b:o.b, h:o.h, e:0, q:+o.comp.toFixed(1), deIfc:true, nEixos:o.n}));
-  g.pilares.forEach((p,i)=>els.push({id:p.nome || `P${i+1}`, t:"pilar",
-    b:Math.max(8,Math.round(p.b*100)), h:Math.max(8,Math.round(p.h*100)), e:0,
-    q:+Math.max(0.3, p.alt || P.pd || 3).toFixed(2), deIfc:true}));
+  const gp = {};
+  g.pilares.forEach(p=>{
+    const b = Math.max(8, Math.round(p.b*100)), h = Math.max(8, Math.round(p.h*100));
+    const k = b+"x"+h;
+    (gp[k] = gp[k] || {b, h, n:0, alt:0, nomes:[]});
+    gp[k].n++; gp[k].alt = Math.max(gp[k].alt, p.alt || 0);
+    if(gp[k].nomes.length < 6 && p.nome) gp[k].nomes.push(p.nome);
+  });
+  Object.values(gp).sort((a,b)=>b.n*b.b*b.h - a.n*a.b*a.h).forEach(o=>els.push({
+    id:`P${o.b}×${o.h}${o.n > 1 ? ` (${o.n})` : ""}`, t:"pilar", b:o.b, h:o.h, e:0,
+    q:+Math.max(0.3, o.alt || P.pd || 3).toFixed(2), deIfc:true, n:o.n, nomes:o.nomes}));
   return els;
 }
 
@@ -4004,6 +4033,42 @@ function aplicar(els,msg){
   ULT.msg = msg;
 }
 
+/* --- DWG --------------------------------------------------------------
+   DWG é formato binário e fechado; não há como ler em JavaScript puro. O
+   conversor é a libredwg compilada para WebAssembly, buscada no CDN só
+   quando chega um DWG — são 11 MB que não fazem falta a quem importa DXF
+   ou IFC. Convertido, o desenho segue pelo mesmo caminho do DXF, que já
+   está conferido: a prancha 207 dá o mesmo resultado pelos dois caminhos. */
+const DWG_CDN = "https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.8.3/dist/libredwg-web.js";
+let CONV_DWG = null;
+async function dwgParaDXF(buf){
+  const diz = t => { if($("parseMsg")) $("parseMsg").innerHTML = t; };
+  const respira = () => new Promise(r=>setTimeout(r, 30));
+  if(!CONV_DWG){
+    diz("Baixando o conversor de DWG — 11 MB, só na primeira vez…");
+    await respira();
+    let mod;
+    try{ mod = await import(DWG_CDN); }
+    catch(e){ throw new Error(
+      `não foi possível baixar o conversor de DWG (${e.message}). Ele vem do jsdelivr e precisa de
+       internet; dentro de um artefato publicado a página pode bloquear o download.
+       <b>Exporte a prancha em DXF</b> — <span style="font-family:var(--f-num)">DXFOUT</span> no AutoCAD,
+       Exportar › CAD no Revit, Arquivo › Exportar › DXF no Eberick.`); }
+    try{ CONV_DWG = await mod.LibreDwg.create(); }
+    catch(e){ throw new Error(`o conversor de DWG não iniciou (${e.message}). Exporte em DXF.`); }
+  }
+  diz("Convertendo o DWG para DXF…");
+  await respira();
+  let saida = null;
+  try{ saida = CONV_DWG.dwg_write_dxf(buf); }catch(e){ saida = null; }
+  if(!saida || !saida.length) throw new Error(
+    `o conversor não entendeu este DWG. Versões muito novas do formato às vezes não passam —
+     exporte em DXF (<span style="font-family:var(--f-num)">DXFOUT</span> no AutoCAD) ou salve o DWG
+     numa versão anterior.`);
+  // a libredwg escreve o DXF em UTF-8; lido como latin-1 o nome da camada sai torto
+  return new TextDecoder("utf-8").decode(saida);
+}
+
 /* --- Importar o modelo ------------------------------------------------
    O IFC não tem marca escrita para ler: tem o sólido. Então não passa
    por lerMarcas nem por detecção de escala — vem o prédio inteiro, com
@@ -4107,20 +4172,32 @@ async function carregarArquivo(f){
     // o pano que dita a grade é escolha dentro de uma prancha: carregado outro
     // projeto, um pano de mesmo nome dita a grade do desenho errado
     $("lajeGov").value = "";
+    // e o nível também: o pé-direito do projeto anterior mudaria a altura de
+    // escora deste, calado. Fica num padrão até a prancha dizer o seu.
+    $("nivLaje").value = 3.00; $("nivApoio").value = 0;
     $("areaBrutaMan").value = 0; $("perimMan").value = 0;
     $("pavLaje").value = ""; $("pavApoio").value = "";
     let mapa = null;
     if(nome.endsWith(".ifc") || nome.endsWith(".ifczip")){ await carregarIFC(f); return; }
     if(nome.endsWith(".pdf")){ itens = await lerPDF(await f.arrayBuffer()); GEO = null; ULT.geoBruto = null; }
-    else if(nome.endsWith(".dxf")){
-      const g = lerDXF(await f.text()); itens = g.txts; compVigas = g.compVigas; ULT.geoBruto = g; GEO = null;
+    else if(nome.endsWith(".dxf") || nome.endsWith(".dwg")){
+      const texto = nome.endsWith(".dwg") ? await dwgParaDXF(await f.arrayBuffer()) : await f.text();
+      const g = lerDXF(texto); itens = g.txts; compVigas = g.compVigas; ULT.geoBruto = g; GEO = null;
       mapa = mapearCamadas(g);
     }
     else { itens = (await f.text()).split(/\r?\n|[;\t]/).map(s=>({s})); GEO = null; ULT.geoBruto = null; }
 
     const niv = lerNiveis(itens);
     let m1 = "";
-    if(niv){ NIVEIS = niv; m1 = ` Níveis: ${niv.length} pavimentos, de ${fmt(niv[0][1],0)} a ${fmt(niv[niv.length-1][1],0)} cm.`; }
+    if(niv){ NIVEIS = niv;
+      m1 = ` Níveis: ${niv.length} pavimentos, de ${fmt(niv[0][1],0)} a ${fmt(niv[niv.length-1][1],0)} cm.`;
+      // o degrau que mais se repete na tabela é o pé-direito do pavimento tipo,
+      // que é o que se escora repetido. Melhor palpite que um número fixo, e
+      // sai da própria prancha — o usuário troca nos dois seletores.
+      const passo = degrauTipico(niv);
+      if(passo){ $("nivLaje").value = +(passo/100).toFixed(2); $("nivApoio").value = 0;
+        m1 += ` Pé-direito adotado ${fmt(passo/100,2)} m, o degrau mais comum da tabela`
+            + ` — escolha o pavimento em <b>Pavimento a concretar</b> se for outro.`; } }
     else m1 = " Sem tabela de níveis na prancha — informe os níveis à mão na configuração.";
     fillNiveis();
     if(mapa){

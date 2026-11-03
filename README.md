@@ -1,9 +1,9 @@
 # Calculadora de Escoramento — NBR 15696
 
 App web estático. Projeto e verificação de fôrmas e escoramentos conforme ABNT NBR 15696:
-lê a planta de formas em DXF ou o modelo estrutural em IFC, lança a grade de escoramento sobre o
-desenho, mostra a montagem em 3D e exporta o jogo de pranchas cotadas em PDF e a grade de volta
-em DXF. Com o IFC o cálculo é do prédio inteiro, pavimento a pavimento.
+lê a planta de formas em DWG ou DXF, ou o modelo estrutural em IFC, lança a grade de escoramento
+sobre o desenho, mostra a montagem em 3D e exporta o jogo de pranchas cotadas em PDF e a grade de
+volta em DXF. Com o IFC o cálculo é do prédio inteiro, pavimento a pavimento.
 
 ## Usar
 
@@ -18,9 +18,16 @@ a leitura da pasta `pranchas/`. O resto do app funciona, e a importação de DXF
 
 ## Importar uma prancha
 
-Exportar a planta de formas em DXF (comando `DXFOUT` no AutoCAD) e soltar no campo de importação.
-O app lê as marcas (`L3 h=18`, `V4 14x88`, `P3 22x175`), detecta a escala do desenho comparando a
-seção dos pilares com o contorno deles, delimita o pavimento e lança a grade.
+Soltar a planta de formas no campo de importação, em **DWG** ou **DXF**. O app lê as marcas
+(`L3 h=18`, `V4 14x88`, `P3 22x175`), detecta a escala do desenho comparando a seção dos pilares
+com o contorno deles, delimita o pavimento e lança a grade.
+
+O DWG é binário e fechado: o app converte com a [libredwg](https://www.gnu.org/software/libredwg/)
+compilada para WebAssembly, buscada no CDN (jsdelivr) só quando chega um DWG — são 11 MB que não
+fazem falta a quem importa DXF ou IFC. Convertido, o desenho segue pelo mesmo caminho do DXF. As
+duas pranchas de exemplo dão resultado idêntico pelos dois caminhos. Sem internet, ou se a página
+bloquear o download, o app avisa e pede o DXF (`DXFOUT` no AutoCAD, Exportar › CAD no Revit,
+Arquivo › Exportar › DXF no Eberick).
 
 As camadas são configuráveis: o padrão é o do AltoQi Eberick (`FO-Vigas`, `FO-Pilares`,
 `FO-Aberturas`), e ao importar o app lista o que achou e deixa remapear.
@@ -36,10 +43,15 @@ separa o cálculo por pavimento, com a cota de cada um. Daí saem, medidos no pr
 - **pilar e parede** — seção e altura, para a fôrma vertical do Anexo D;
 - **pé-direito** — diferença de cota entre o pavimento e o de baixo.
 
-Testado com exportação do AltoQi Eberick e do Revit, esquema IFC4 e IFC2x3, em milímetro,
-centímetro, metro ou pé. Geometria por extrusão (`IfcExtrudedAreaSolid`), por casca de faces
-(`IfcFacetedBrep`), por malha (`IfcPolygonalFaceSet`), por item mapeado (`IfcMappedItem`) e com
-recorte booleano (`IfcBooleanClippingResult`).
+Testado contra 53 modelos de 12 obras, exportados pelo AltoQi Eberick e pelo Revit, de 20 kB a
+388 MB (7,5 milhões de entidades). Esquema IFC4 e IFC2x3, em milímetro, centímetro, metro ou pé.
+Geometria por extrusão (`IfcExtrudedAreaSolid`), por casca de faces (`IfcFacetedBrep`), por malha
+(`IfcPolygonalFaceSet`, `IfcTriangulatedFaceSet`), por item mapeado (`IfcMappedItem`) e com recorte
+booleano (`IfcBooleanClippingResult`).
+
+O Revit costuma exportar dois níveis por pavimento, o de osso e o acabado, a poucos centímetros um
+do outro; o app junta níveis a menos de 1 m, senão o pé-direito de um deles viraria 6 cm e a área
+contaria duas vezes. Modelo de arquitetura não tem viga, e o app avisa: o cálculo sai só com a laje.
 
 A gaveta **Projeto completo** calcula todos os pavimentos com a configuração que está na tela e
 mostra, por pavimento, área de fôrma, metros de viga, grade, apoios, placas e aproveitamento —
