@@ -5,6 +5,25 @@ lê a planta de formas em DWG ou DXF, ou o modelo estrutural em IFC, lança a gr
 sobre o desenho, mostra a montagem em 3D e exporta o jogo de pranchas cotadas em PDF e a grade de
 volta em DXF. Com o IFC o cálculo é do prédio inteiro, pavimento a pavimento.
 
+## A tela
+
+Em cima, o que se precisa para começar: o arquivo, a estrutura de apoio, o pavimento e um exemplo
+pronto. Depois os números do pavimento, o desenho com as setas de subir e descer, e a tira de
+custo do que está na tela.
+
+Embaixo, três abas:
+
+- **Orçamento** — preços, prazos, equipamento a mobilizar e o custo discriminado por pavimento.
+- **Conferência** — a cadeia de cálculo de lajes e vigas, as fôrmas verticais do Anexo D, a
+  estabilidade horizontal, a desforma e o memorial em texto corrido.
+- **Avançado** — os elementos lidos do arquivo, o aproveitamento das chapas, os ajustes de leitura
+  do desenho (escala, níveis, camadas, pano que dita a grade) e o catálogo de materiais e ações.
+
+O interruptor **explicações**, à direita das abas, mostra o porquê de cada conta: de onde vem o
+espaçamento, por que o equipamento sai do pico e não da soma, o que a norma manda. Fica desligado
+para quem só quer o número. Os avisos — preço não é cotação, prazo de desforma é do projetista da
+estrutura — aparecem sempre.
+
 ## Usar
 
 Qualquer servidor estático serve. Localmente:

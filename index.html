@@ -96,6 +96,17 @@ button.ghost{background:none;border-color:transparent;color:var(--accent);paddin
 .legenda u{width:9px;height:9px;border-radius:50%;border:2px solid var(--esc);text-decoration:none;flex:none}
 .legenda s{width:14px;height:10px;border:1px dashed var(--placa);text-decoration:none;flex:none}
 
+/* ---- abas ---- */
+.abas{display:flex;gap:2px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:18px 0 10px}
+.abas button[role=tab]{background:none;border:0;border-bottom:2px solid transparent;border-radius:0;
+  padding:8px 14px;font-family:var(--f-disp);font-size:12px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3)}
+.abas button[role=tab]:hover{color:var(--ink-2)}
+.abas button[role=tab][aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent)}
+/* explicação: o porquê de cada conta, fora do caminho de quem só quer o número */
+.exp{display:none}
+body.comExp .exp{display:block}
+
 /* ---- gavetas técnicas ---- */
 details.gav{background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:8px}
 details.gav>summary{cursor:pointer;padding:11px 14px;font-family:var(--f-disp);font-size:12px;font-weight:700;letter-spacing:.1em;
@@ -186,17 +197,25 @@ footer.sheet b{color:var(--ink-2)}
 
 <div class="wrap">
 
-  <!-- ====== ENTRADA ESSENCIAL ====== -->
+  <!-- ====== ENTRADA ====== -->
   <div class="entrada">
-    <div><label for="preset">Prancha</label><select id="preset">
+    <div style="grid-column:span 2"><label>Planta de formas ou modelo estrutural <span class="u">(DWG, DXF ou IFC)</span></label>
+      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.dwg,.ifc,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
+    <div><label for="sysVert">Estrutura de apoio</label><select id="sysVert"></select></div>
+    <div id="boxPav" hidden><label for="pavSel">Pavimento do modelo</label>
+      <select id="pavSel"></select></div>
+    <div><label for="preset">Exemplo pronto</label><select id="preset">
       <option value="hrd207">Exemplo — forma de pavimento tipo</option>
       <option value="hrd520">Exemplo — pavimento inferior</option>
       <option value="mont">Laje trelicada — exemplo</option>
       <option value="vazio">(em branco)</option>
     </select></div>
+  </div>
+
+  <!-- vai para a aba Avançado por script: é ajuste de leitura, não entrada do dia a dia -->
+  <div id="boxLeitura" class="entrada" style="border:0;padding:0;margin:0">
     <div><label for="pavLaje">Pavimento a concretar</label><select id="pavLaje"></select></div>
     <div><label for="pavApoio">Pavimento de apoio</label><select id="pavApoio"></select></div>
-    <div><label for="sysVert">Estrutura de apoio</label><select id="sysVert"></select></div>
     <div><label for="lajeGov">Pano que dita a grade</label><select id="lajeGov"></select></div>
     <div><label for="escala">Escala do desenho</label><select id="escala">
       <option value="auto">Detectar pelos pilares</option>
@@ -208,10 +227,6 @@ footer.sheet b{color:var(--ink-2)}
     </select></div>
     <div><label for="escalaFator">1 unidade vale <span class="u">(m)</span></label>
       <input type="number" id="escalaFator" value="1" step="0.001"></div>
-    <div id="boxPav" hidden><label for="pavSel">Pavimento do modelo</label>
-      <select id="pavSel"></select></div>
-    <div><label>Importar prancha ou modelo</label>
-      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.dwg,.ifc,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -257,17 +272,6 @@ footer.sheet b{color:var(--ink-2)}
       </div>
       <div class="sep"></div>
       <div class="g">
-        <label class="chk">longarinas
-          <select id="dirLong" style="width:auto;padding:3px 5px;font-size:11.5px">
-            <option value="x">horizontais</option><option value="y">verticais</option></select></label>
-        <label class="chk">origem
-          <input type="number" id="offX" value="0" step="0.05" style="width:62px;padding:3px 5px;font-size:11.5px" title="deslocamento da grade em X (m)">
-          <input type="number" id="offY" value="0" step="0.05" style="width:62px;padding:3px 5px;font-size:11.5px" title="deslocamento da grade em Y (m)"></label>
-        <label class="chk">placa
-          <input type="text" id="placaDim" value="200x100" style="width:76px;padding:3px 5px;font-size:11.5px" title="dimensão da placa em cm, largura x altura"></label>
-      </div>
-      <div class="sep"></div>
-      <div class="g">
         <button id="fit">enquadrar</button>
       </div>
     </div>
@@ -296,22 +300,52 @@ footer.sheet b{color:var(--ink-2)}
     <div class="legenda" id="legenda"></div>
   </div>
 
-  <!-- ====== GAVETAS TÉCNICAS ====== -->
-  <details class="gav"><summary>Lajes — cadeia de cálculo <span class="c" id="cLajes"></span></summary><div class="gav-body" id="pLajes"></div></details>
-  <details class="gav"><summary>Vigas <span class="c" id="cVigas"></span></summary><div class="gav-body" id="pVigas"></div></details>
-  <details class="gav"><summary>Fôrmas verticais — Anexo D <span class="c" id="cVert"></span></summary><div class="gav-body" id="pVert"></div></details>
-  <details class="gav"><summary>Estabilidade horizontal <span class="c" id="cEstab"></span></summary><div class="gav-body" id="pEstab"></div></details>
-  <details class="gav" id="gavProj"><summary>Projeto completo — todos os pavimentos <span class="c" id="cProj"></span></summary><div class="gav-body" id="pProj"></div></details>
-  <details class="gav"><summary>Quantitativo <span class="c" id="cQuant"></span></summary><div class="gav-body" id="pQuant"></div></details>
-  <details class="gav"><summary>Aproveitamento das chapas <span class="c" id="cCorte"></span></summary><div class="gav-body" id="pCorte"></div></details>
-  <details class="gav"><summary>Orçamento — venda ou aluguel <span class="c" id="cOrc"></span></summary><div class="gav-body" id="pOrc"></div></details>
-  <details class="gav"><summary>Desforma e reescoramento <span class="c"></span></summary><div class="gav-body" id="pDesf"></div></details>
-  <details class="gav"><summary>Memória de cálculo <span class="c">texto corrido</span></summary><div class="gav-body"><div class="mem" id="pMem"></div></div></details>
-  <details class="gav"><summary>Ações, materiais e catálogo <span class="c">configuração</span></summary><div class="gav-body" id="pCfg"></div></details>
-  <details class="gav"><summary>Elementos da prancha <span class="c" id="cEls"></span></summary><div class="gav-body" id="pEls"></div></details>
+  <!-- ====== ABAS ====== -->
+  <nav class="abas" role="tablist">
+    <button role="tab" data-aba="orc" aria-selected="true">Orçamento</button>
+    <button role="tab" data-aba="conf" aria-selected="false">Conferência</button>
+    <button role="tab" data-aba="avan" aria-selected="false">Avançado</button>
+    <label class="chk" style="margin-left:auto"><input type="checkbox" id="verExp"> explicações</label>
+  </nav>
+
+  <section id="abaOrc">
+    <details class="gav" open><summary>Orçamento — venda ou aluguel <span class="c" id="cOrc"></span></summary><div class="gav-body" id="pOrc"></div></details>
+    <details class="gav" id="gavProj"><summary>Pavimento a pavimento <span class="c" id="cProj"></span></summary><div class="gav-body" id="pProj"></div></details>
+    <details class="gav"><summary>Quantitativo do pavimento <span class="c" id="cQuant"></span></summary><div class="gav-body" id="pQuant"></div></details>
+  </section>
+
+  <section id="abaConf" hidden>
+    <details class="gav" open><summary>Lajes — cadeia de cálculo <span class="c" id="cLajes"></span></summary><div class="gav-body" id="pLajes"></div></details>
+    <details class="gav"><summary>Vigas <span class="c" id="cVigas"></span></summary><div class="gav-body" id="pVigas"></div></details>
+    <details class="gav"><summary>Fôrmas verticais — Anexo D <span class="c" id="cVert"></span></summary><div class="gav-body" id="pVert"></div></details>
+    <details class="gav"><summary>Estabilidade horizontal <span class="c" id="cEstab"></span></summary><div class="gav-body" id="pEstab"></div></details>
+    <details class="gav"><summary>Desforma e reescoramento <span class="c"></span></summary><div class="gav-body" id="pDesf"></div></details>
+    <details class="gav"><summary>Memória de cálculo <span class="c">texto corrido</span></summary><div class="gav-body"><div class="mem" id="pMem"></div></div></details>
+  </section>
+
+  <section id="abaAvan" hidden>
+    <details class="gav" open><summary>Elementos lidos do arquivo <span class="c" id="cEls"></span></summary><div class="gav-body" id="pEls"></div></details>
+    <details class="gav"><summary>Aproveitamento das chapas <span class="c" id="cCorte"></span></summary><div class="gav-body" id="pCorte"></div></details>
+    <details class="gav"><summary>Leitura do desenho <span class="c">escala, níveis e camadas</span></summary><div class="gav-body" id="pLeitura"></div></details>
+    <details class="gav"><summary>Ações, materiais e catálogo <span class="c">configuração</span></summary><div class="gav-body" id="pCfg"></div></details>
+  </section>
 
   <div id="pdfPranchas"></div>
   <div id="folha"></div>
+</div>
+
+<!-- ajuste fino da grade: vai para a aba Avançado por script -->
+<div id="boxGrade" class="ctrl" style="border:0;padding:0" hidden>
+  <div class="g">
+    <label class="chk">longarinas
+      <select id="dirLong" style="width:auto;padding:3px 5px;font-size:11.5px">
+        <option value="x">horizontais</option><option value="y">verticais</option></select></label>
+    <label class="chk">origem da grade
+      <input type="number" id="offX" value="0" step="0.05" style="width:62px;padding:3px 5px;font-size:11.5px" title="deslocamento em X (m)">
+      <input type="number" id="offY" value="0" step="0.05" style="width:62px;padding:3px 5px;font-size:11.5px" title="deslocamento em Y (m)"></label>
+    <label class="chk">placa <span style="color:var(--ink-3)">(cm)</span>
+      <input type="text" id="placaDim" value="200x100" style="width:76px;padding:3px 5px;font-size:11.5px" title="largura x altura"></label>
+  </div>
 </div>
 
 <!-- configuração completa, movida para a gaveta por script -->
@@ -3128,7 +3162,7 @@ function paneLajes(L,cfg,rGov){
     <td class="num">${fmt(r.sEsc,2)}${r.limApoio?' <span class="pill warn">apoio</span>':''}</td>
     <td class="num">${fmt(r.Pk,1)}</td><td class="num">${fmt(r.capUso,1)}</td>
     <td>${pill(r.fu)}</td><td class="num">${fmt(r.nEsc,0)}</td></tr>`).join("");
-  return `<div class="note">O desenho usa uma grade única para todo o pavimento, ditada pelo pano marcado — como o projeto de
+  return `<div class="note exp">O desenho usa uma grade única para todo o pavimento, ditada pelo pano marcado — como o projeto de
     referência, que adotou torre painel para toda a área. Nos panos mais leves a grade fica conservadora; a coluna
     <b>s apoio</b> mostra o que cada pano pediria sozinho.</div>
     <div class="scroll"><table><thead><tr><th>Laje</th><th class="num">Área<br>m²</th><th class="num">g laje<br>kN/m²</th>
@@ -3192,7 +3226,7 @@ function paneVigas(V,cfg){
     <td class="num">${fmt(o.r.Pk,1)}</td><td class="num">${fmt(o.r.capUso,1)}</td>
     <td>${pill(o.r.fu)}</td><td class="num">${fmt(Math.ceil(o.comp/o.r.s)+o.ids.length,0)}</td></tr>`).join("");
   const sMin = Math.min(...V.map(r=>r.s));
-  return `<div class="note">Agrupado por seção, porque o espaçamento das escoras depende de b × h e não do comprimento.
+  return `<div class="note exp">Agrupado por seção, porque o espaçamento das escoras depende de b × h e não do comprimento.
     O desenho marca as escoras de viga no espaçamento mais apertado, <b>${fmt(sMin,2)} m</b>, válido para todas.
     Fundo de viga com sarrafos 5,00 × 2,50 cm é o padrão do projeto de referência.</div>
     <div class="scroll"><table><thead><tr><th>Seção</th><th class="num">Compr.<br>m</th><th class="num">w<br>kN/m</th>
@@ -3212,7 +3246,7 @@ function paneVert(P,V,cfg){
       <td class="num">${fmt(pr.hs,2)}</td><td class="num">${fmt(pr.sGravata,2)}</td><td class="num">${n}</td>
       <td class="num">${fmt(pr.pb*pr.sGravata*(it.b/100),1)}</td></tr>`;
   }).join("");
-  return `<div class="note">Anexo D: a hidrostática γ·h é o máximo possível e serve de limite superior. Pressão adotada:
+  return `<div class="note exp">Anexo D: a hidrostática γ·h é o máximo possível e serve de limite superior. Pressão adotada:
     <b>${cfg.pressMod==="hidro"?"hidrostática":"diagrama D.1, aproximação"}</b>.
     ${cfg.pressMod==="diag"?"As retas do diagrama estão por aproximação — confira contra a Figura D.1 da norma antes de usar em projeto.":""}
     Vale para fôrma vertical com variação até ±5° do prumo; ancorar contra o vento com escoras de prumo.</div>
@@ -3294,7 +3328,7 @@ function paneQuant(L,V,cfg,layout){
       <td style="text-align:left;font-family:var(--f-num);font-size:11px;color:var(--ink-3)">${u}</td>
       <td class="num"><b>${fmt(q, u==="un"?0:1)}</b></td>
       <td style="text-align:left;font-size:11.5px;color:var(--ink-3)">${o}</td></tr>`).join("")}</tbody></table></div>
-    <div class="note">As peças de madeira complementares — compensados, barrotes, sarrafos, pontaletes, cunhas e calços — são de
+    <div class="note exp">As peças de madeira complementares — compensados, barrotes, sarrafos, pontaletes, cunhas e calços — são de
     responsabilidade do cliente quanto a cálculo, dimensionamento, fornecimento e instalação. Pode haver substituição por peças
     similares na separação de materiais, mantendo funcionalidade e desempenho.</div>`;
 }
@@ -3354,7 +3388,7 @@ function orcPorPavimento(){
     <td class="num">${BRL(l.custo.cons)}</td><td class="num"><b>${BRL(l.custo.tot)}</b></td>
     <td class="num">${BRL(l.custo.tot/Math.max(1,l.areaBruta))}</td></tr>`;
   return `<div class="sub">Discriminado por pavimento</div>
-  <div class="note">O que cabe a cada pavimento: o serviço de montar e desmontar, o aluguel do
+  <div class="note exp">O que cabe a cada pavimento: o serviço de montar e desmontar, o aluguel do
     equipamento no tempo em que fica ali, e o consumível gasto na passagem. <b>Não entra a compra
     do jogo</b>, que é da obra e aparece no fechamento acima. O pavimento na tela está destacado.</div>
   <div class="scroll"><table><thead><tr><th>Pavimento</th><th class="num">m² fôrma</th>
@@ -3536,14 +3570,14 @@ function paneCorte(cfg){
     <b>Corte aproveitado</b> é quanto da chapa vira peça, e a peça é o retângulo que envolve o pedaço de laje —
     onde ela contorna pilar ou abertura, parte dela ainda será cortada fora na obra.
     <b>Cobre a laje</b> compara a área de laje com a área de chapa comprada, e é o número que fecha com o consumo real.</div>
-    <div class="note">Cada posição de placa recebe um número na planta; o asterisco marca as que são recorte.
+    <div class="note exp">Cada posição de placa recebe um número na planta; o asterisco marca as que são recorte.
     Os recortes são encaixados em chapas novas por prateleiras, com corte guilhotinado — o que a serra circular faz.
     ${cfg.girarChapa ? "<b>Giro de 90° ligado:</b> confira a direção das fibras nas peças marcadas com ↻."
                      : "Giro desligado: todas as peças mantêm a direção das fibras da chapa."}</div>
     <div class="scroll"><table><thead><tr><th>Recorte</th><th class="num">Qtd</th><th class="num">m² cada</th>
       <th class="num">m² total</th><th style="text-align:left">Placas na planta</th></tr></thead>
       <tbody>${linhas || `<tr><td colspan="5">Nenhum recorte: todas as placas saem de chapa inteira.</td></tr>`}</tbody></table></div>
-    <div class="note">A peça é o retângulo que cobre o que fica sobre a laje naquela posição, arredondado para cima em
+    <div class="note exp">A peça é o retângulo que cobre o que fica sobre a laje naquela posição, arredondado para cima em
     múltiplos de 5 cm. Onde a placa contorna pilar ou abertura o recorte final é feito na obra, sobre a peça já cortada.</div>`;
 }
 
@@ -4286,7 +4320,7 @@ function paneProjeto(cfg){
     <th class="num">${fmt(R.hDesmTot/(R.equipe*R.jornada),0)}</th><th class="num">—</th></tr></tfoot></table></div>
 
   <div class="sub">Equipamento a mobilizar</div>
-  <div class="note">O jogo tem de atender o pavimento mais exigente, porque é o mesmo jogo que sobe.
+  <div class="note exp">O jogo tem de atender o pavimento mais exigente, porque é o mesmo jogo que sobe.
     Por isso o equipamento sai do <b>pico</b> entre os pavimentos, multiplicado por
     ${R.jogos} jogo(s) simultâneo(s) — e não pela soma, que seria comprar a obra inteira de uma vez.
     O consumível é o contrário: gasta-se, então vem da soma dividida pelo reaproveitamento
@@ -4299,7 +4333,7 @@ function paneProjeto(cfg){
   </tbody></table></div>
 
   <div class="sub">Montagem, desforma e reescoramento</div>
-  <div class="note">Montagem e desmontagem saem da produtividade por m² de fôrma com a equipe informada;
+  <div class="note exp">Montagem e desmontagem saem da produtividade por m² de fôrma com a equipe informada;
     o resto do prazo é cura, que não depende de equipe. Os prazos de desforma são os do projeto
     estrutural — <b>quem manda neles é o projetista da estrutura</b>, não esta calculadora.
     ${R.jogos < R.jogosNec
@@ -4360,7 +4394,7 @@ function paneProjeto(cfg){
     o preço é seu. Troque na gaveta do orçamento.</div>
 
   <div class="sub">Onde está o governo do projeto</div>
-  <div class="note">
+  <div class="note exp">
     Aproveitamento máximo em <b>${pior ? pior.P.nome : "—"}</b>, com ${pior ? fmt(pior.fu*100,0) : "—"}%
     — é esse pavimento que dita a grade se o jogo for único.<br>
     Mais apoios em <b>${maior ? maior.P.nome : "—"}</b>, com ${maior ? fmt(maior.nEsc+maior.nEscV,0) : "—"}
@@ -4609,6 +4643,10 @@ async function carregarArquivo(f){
    FIAÇÃO
    =================================================================== */
 $("pCfg").appendChild($("tplCfg").content.cloneNode(true));
+// o ajuste fino da grade mora na configuração, não na barra do desenho
+$("boxGrade").hidden = false;
+$("pCfg").insertAdjacentHTML("afterbegin", `<div class="sub" id="subGrade">Grade e placa</div>`);
+$("subGrade").after($("boxGrade"));
 const fill = (sel,obj,def)=>{ $(sel).innerHTML = Object.entries(obj)
   .map(([k,d])=>`<option value="${k}"${k===def?" selected":""}>${d.nome}</option>`).join(""); };
 fill("sysVert",VERTICAIS,"escora-320");
@@ -4693,6 +4731,29 @@ function syncNivel(){
   if(b) $("nivApoio").value=(parseFloat(b)/100).toFixed(2);
   render();
 }
+// Abas: o que se usa para orçar fica à frente; a conferência do cálculo e os
+// ajustes de leitura ficam atrás, a um clique.
+const ABAS = {orc:"abaOrc", conf:"abaConf", avan:"abaAvan"};
+function abrirAba(k){
+  Object.entries(ABAS).forEach(([n,id])=>{ $(id).hidden = (n !== k); });
+  document.querySelectorAll(".abas button[role=tab]").forEach(b=>
+    b.setAttribute("aria-selected", String(b.dataset.aba === k)));
+  try{ localStorage.setItem("esc.aba", k); }catch(_){}
+}
+document.querySelectorAll(".abas button[role=tab]").forEach(b=>
+  b.addEventListener("click", ()=>abrirAba(b.dataset.aba)));
+$("verExp").addEventListener("change", ()=>{
+  document.body.classList.toggle("comExp", $("verExp").checked);
+  try{ localStorage.setItem("esc.exp", $("verExp").checked ? "1" : "0"); }catch(_){}
+});
+try{
+  const a = localStorage.getItem("esc.aba");
+  if(a && ABAS[a]) abrirAba(a);
+  if(localStorage.getItem("esc.exp") === "1"){ $("verExp").checked = true; document.body.classList.add("comExp"); }
+}catch(_){}
+// os ajustes de leitura moram na aba Avançado
+$("pLeitura").appendChild($("boxLeitura"));
+
 $("pavSel").onchange = e => trocarPav(+e.target.value);
 // a gaveta fechada não calcula; ao abrir, calcula
 $("gavProj").ontoggle = () => { if(PAVS.length) render(); };
