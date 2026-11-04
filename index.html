@@ -1594,13 +1594,45 @@ function prepararIFC(A, cell){
     cxm:nL ? bb.x0 + (sx/nL)*cell : (bb.x0+bb.x1)/2,
     cym:nL ? bb.y0 + (sy/nL)*cell : (bb.y0+bb.y1)/2};
 
+  /* Contorno dos panos. A laje nervurada vem do IFC em dezenas de caixas —
+     80 só no pano maior deste exemplo — e desenhar todas vira uma malha que
+     esconde a peça de cada prancha. Em planta o que interessa é o limite de
+     cada pano, então o contorno sai da máscara: fronteira é onde muda o dono
+     da célula. Trechos seguidos na mesma linha viram um segmento só. */
+  const contorno = [];
+  const dono = k => (k >= 0 && k < W*H) ? (furo[k] ? -2 : laje[k]) : -1;
+  for(let r = 0; r <= H; r++){                        // fronteiras horizontais
+    let ini = -1;
+    for(let c = 0; c <= W; c++){
+      const muda = c < W && r <= H &&
+        dono((r-1)*W+c) !== dono(r*W+c) && (r > 0 || dono(r*W+c) >= 0) && (r < H || dono((r-1)*W+c) >= 0);
+      if(muda && ini < 0) ini = c;
+      if((!muda || c === W) && ini >= 0){
+        contorno.push([[bb.x0+ini*cell, bb.y0+r*cell], [bb.x0+c*cell, bb.y0+r*cell]]);
+        ini = -1;
+      }
+    }
+  }
+  for(let c = 0; c <= W; c++){                        // fronteiras verticais
+    let ini = -1;
+    for(let r = 0; r <= H; r++){
+      const muda = r < H &&
+        dono(r*W+c-1) !== dono(r*W+c) && (c > 0 || dono(r*W+c) >= 0) && (c < W || dono(r*W+c-1) >= 0);
+      if(muda && ini < 0) ini = r;
+      if((!muda || r === H) && ini >= 0){
+        contorno.push([[bb.x0+c*cell, bb.y0+ini*cell], [bb.x0+c*cell, bb.y0+r*cell]]);
+        ini = -1;
+      }
+    }
+  }
+
   // --- desenho: o IFC vira a mesma geometria que a prancha daria
-  const polys = [], txts = [];
+  const polys = [], txts = [], lines = [];
   const cent = pts => { let ax = 0, ay = 0; pts.forEach(q=>{ ax += q[0]; ay += q[1]; });
     return [ax/pts.length, ay/pts.length]; };
   A.lajes.forEach(l=>{ const p0 = l.pols[0];
     if(p0){ const c = cent(p0.pts); txts.push({lay:"FO-Lajes", s:l.nome, x:c[0], y:c[1]}); } });
-  pols.forEach(p=>polys.push({lay:"FO-Lajes", closed:true, pts:p.pts}));
+  contorno.forEach(([a,b])=>lines.push({lay:"FO-Lajes", a, b}));
   ab.forEach(v=>polys.push({lay:"FO-Aberturas", closed:true, pts:v}));
   pl.forEach(p=>polys.push({lay:"FO-Pilares", closed:true, pts:p.pol}));
   vg.forEach(v=>polys.push({lay:"FO-Vigas", closed:true, pts:faixa(v)}));
@@ -1608,7 +1640,7 @@ function prepararIFC(A, cell){
   // eixo de viga pronto: do IFC, sem pareamento de arestas
   const eixos = vg.map(v=>({a:[v.a[0],v.a[1]], b:[v.b2[0],v.b2[1]], larg:v.b, alt:v.h, nome:v.nome}));
 
-  return {bb, mask, eixos, panos, lines:[], polys, txts, arcs:[], circles:[],
+  return {bb, mask, eixos, panos, lines, polys, txts, arcs:[], circles:[],
           compVigas:vg.reduce((s,v)=>s+v.comp,0),
           vigas:vg, pilares:pl};
 }
