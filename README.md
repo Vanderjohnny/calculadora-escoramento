@@ -132,12 +132,16 @@ laje, escoras de viga). Ao lado do desenho, cada folha traz o seu próprio quant
 dos traços que aparecem nela e o custo do pavimento — montagem, desmontagem, serviço, equipamento
 e consumível. A folha se explica sozinha no canteiro.
 
+Toda cota sai de dois eixos de referência, o **A** e o **1**, e os dois se cruzam no centro de
+um pilar — o mesmo pilar em todos os pavimentos, escolhido entre os que atravessam o prédio
+inteiro. É isso que deixa a cota de um andar comparável com a do outro e com a planta de formas.
+
 **Gerar memoriais** — o memorial de cálculo em texto corrido, com o quadro de pavimentos e a linha
 do tempo da obra, em arquivo separado do jogo de pranchas.
 
 **DXF** — a grade de volta para o CAD, em metros, no mesmo sistema de coordenadas da planta
 importada, separada em camadas: `ESC-PLACAS`, `ESC-BARROTES`, `ESC-LONGARINAS`, `ESC-ESCORAS`,
-`ESC-ESCORAS-VIGA`, `ESC-COTAS`, `ESC-MARCAS` e `PLANTA`.
+`ESC-ESCORAS-VIGA`, `ESC-COTAS`, `ESC-EIXOS`, `ESC-MARCAS` e `PLANTA`.
 
 Dentro de um artefato publicado no claude.ai as duas exportações ficam indisponíveis, porque o
 frame bloqueia impressão e download. Pelo app servido funcionam normalmente.

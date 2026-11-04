@@ -2825,35 +2825,75 @@ function eixosUteis(vals, eixo, bb, M){
   });
 }
 /* --- Eixos de referência ----------------------------------------------
-   Toda cota precisa sair de um eixo do projeto. Usa a camada de eixos
-   quando a prancha tem uma; senão ancora no pilar extremo, que é a
-   referência que sempre existe numa planta de formas. */
+   Os dois eixos se cruzam no centro de um pilar, e do mesmo pilar em todos
+   os pavimentos: é isso que deixa a cota de um andar comparável com a do
+   outro e com a planta de formas. Entre os pilares que atravessam o prédio
+   vale o que está mais perto do canto da planta, que é onde a prancha põe
+   o eixo A junto com o 1. Sem pilar nenhum, cai na camada de eixos. */
+function pilaresDe(g){
+  // do modelo vem a seção já identificada; da prancha, a polilinha fechada
+  const fonte = (g && g.pilares && g.pilares.length)
+    ? g.pilares.map(p=>({pts:p.pol, nome:p.nome}))
+    : ((g && g.polys) || []).filter(p=>LAY_PILAR.test(p.lay) && !/hachur|hatch/i.test(p.lay))
+        .map(p=>({pts:p.pts}));
+  const out = [];
+  fonte.forEach(p=>{
+    if(!p.pts || p.pts.length < 3) return;
+    let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+    p.pts.forEach(q=>{ if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1]; if(q[1]>y1)y1=q[1]; });
+    const a = Math.min(x1-x0, y1-y0), b = Math.max(x1-x0, y1-y0);
+    if(a < 0.10 || a > 0.90 || b > 3.00) return;     // parede, hachura ou traço solto
+    out.push({c:[(x0+x1)/2, (y0+y1)/2], nome:p.nome});
+  });
+  return out;
+}
+let ANCORA = null;                       // o pilar comum, achado uma vez por importação
+function pilarAncora(){
+  const geos = PAVS.length ? PAVS.map(P=>P.geo) : (GEO ? [GEO] : []);
+  if(!geos.length) return null;
+  if(ANCORA && ANCORA.de === geos[0]) return ANCORA.p;
+  const listas = geos.map(pilaresDe).filter(l=>l.length);
+  let p = null;
+  if(listas.length){
+    const TOL = 0.25;                    // o mesmo pilar de um pavimento para o outro
+    const cand = [];
+    listas.forEach(l=>l.forEach(q=>{
+      if(!cand.some(c=>Math.hypot(c.c[0]-q.c[0], c.c[1]-q.c[1]) < TOL)) cand.push({c:q.c, nome:q.nome});
+    }));
+    // quando a prancha traz camada de eixos, prefere o pilar que está sobre ela
+    const bb = geos[0].bb;
+    const lin = (GEO && GEO.lines || []).filter(l=>LAY_EIXO.test(l.lay));
+    const vx = lin.filter(l=>Math.abs(l.b[0]-l.a[0]) < 0.05 && Math.abs(l.b[1]-l.a[1]) > 1).map(l=>l.a[0]);
+    const hy = lin.filter(l=>Math.abs(l.b[1]-l.a[1]) < 0.05 && Math.abs(l.b[0]-l.a[0]) > 1).map(l=>l.a[1]);
+    cand.forEach(c=>{
+      c.n = listas.filter(l=>l.some(q=>Math.hypot(q.c[0]-c.c[0], q.c[1]-c.c[1]) < TOL)).length;
+      c.d = bb ? Math.hypot(c.c[0]-bb.x0, c.c[1]-bb.y0) : 0;
+      c.sobre = (vx.some(v=>Math.abs(v-c.c[0]) < 0.30) && hy.some(v=>Math.abs(v-c.c[1]) < 0.30)) ? 1 : 0;
+    });
+    cand.sort((A,B)=> B.n - A.n || B.sobre - A.sobre || A.d - B.d);
+    p = Object.assign({}, cand[0], {pavs:listas.length});
+  }
+  ANCORA = {de:geos[0], p};
+  return p;
+}
 function eixosReferencia(){
   if(!GEO || !GEO.bb) return null;
   const bb = GEO.bb;
+  const pil = pilarAncora();
+  if(pil) return {x:pil.c[0], y:pil.c[1], rotX:"EIXO A", rotY:"EIXO 1",
+    via: `centro do pilar ${pil.nome || "mais próximo do canto"}`
+       + (pil.pavs > 1 ? `, comum a ${pil.n} dos ${pil.pavs} pavimentos` : "")
+       + (pil.sobre ? ", sobre os eixos da prancha" : "")};
   const dentro = (x,y)=> x>=bb.x0&&x<=bb.x1&&y>=bb.y0&&y<=bb.y1;
   const linhas = (GEO.lines||[]).filter(l=>LAY_EIXO.test(l.lay))
     .filter(l=>dentro((l.a[0]+l.b[0])/2,(l.a[1]+l.b[1])/2));
-  let refX = null, refY = null, via = "";
   const vert = linhas.filter(l=>Math.abs(l.b[0]-l.a[0]) < 0.05 && Math.abs(l.b[1]-l.a[1]) > 1);
   const horiz = linhas.filter(l=>Math.abs(l.b[1]-l.a[1]) < 0.05 && Math.abs(l.b[0]-l.a[0]) > 1);
-  if(vert.length && horiz.length){
-    refX = Math.min(...vert.map(l=>l.a[0]));
-    refY = Math.min(...horiz.map(l=>l.a[1]));
-    via = `camada de eixos do projeto (${vert.length} verticais, ${horiz.length} horizontais)`;
-  } else {
-    const pil = (GEO.polys||[]).filter(p=>LAY_PILAR.test(p.lay)).map(p=>{
-      const xs=p.pts.map(q=>q[0]), ys=p.pts.map(q=>q[1]);
-      return [(Math.min(...xs)+Math.max(...xs))/2, (Math.min(...ys)+Math.max(...ys))/2];
-    }).filter(c=>dentro(c[0],c[1]));
-    if(!pil.length) return null;
-    refX = Math.min(...pil.map(c=>c[0]));
-    refY = Math.min(...pil.map(c=>c[1]));
-    via = `pilar extremo, por falta de camada de eixos (${pil.length} pilares)`;
-  }
-  return {x:refX, y:refY, via, rotX:"EIXO A", rotY:"EIXO 1"};
+  if(!vert.length || !horiz.length) return null;
+  return {x:Math.min(...vert.map(l=>l.a[0])), y:Math.min(...horiz.map(l=>l.a[1])),
+          via:`camada de eixos do projeto (${vert.length} verticais, ${horiz.length} horizontais)`,
+          rotX:"EIXO A", rotY:"EIXO 1"};
 }
-
 function gerarCotas(tipo, cfg, layout, rGov){
   if(!GEO || !GEO.bb || !rGov) return [];
   const bb = GEO.bb, M = GEO.mask, horiz = cfg.dirLong==="x";
@@ -3929,7 +3969,7 @@ function gerarDXF(cfg, layout, rGov){
   const n = v => (Math.round(v*1e5)/1e5).toFixed(5);
   const CAMS = [["PLANTA",8],["ESC-PLACAS",9],["ESC-PLACAS-NUM",4],["ESC-BARROTES",3],
                 ["ESC-LONGARINAS",5],["ESC-ESCORAS",1],["ESC-ESCORAS-VIGA",6],["ESC-MARCAS",7],
-                ["ESC-COTAS",2],["CORTE-CHAPAS",8],["CORTE-PECAS",9],["CORTE-TEXTO",4]];
+                ["ESC-COTAS",2],["ESC-EIXOS",4],["CORTE-CHAPAS",8],["CORTE-PECAS",9],["CORTE-TEXTO",4]];
   const linha = (lay,a,b) => { p(0,"LINE"); p(8,lay); p(10,n(a[0])); p(20,n(a[1])); p(30,"0.0");
     p(11,n(b[0])); p(21,n(b[1])); p(31,"0.0"); };
   const circ = (lay,c,r) => { p(0,"CIRCLE"); p(8,lay); p(10,n(c[0])); p(20,n(c[1])); p(30,"0.0"); p(40,n(r)); };
@@ -3967,6 +4007,25 @@ function gerarDXF(cfg, layout, rGov){
   layout.escVigas.forEach(([x,y])=>{ const r=0.09;
     linha("ESC-ESCORAS-VIGA",[x-r,y-r],[x+r,y+r]); linha("ESC-ESCORAS-VIGA",[x-r,y+r],[x+r,y-r]); });
   GEO.txts.filter(t=>/^[LVP]F?\d+[A-Z]?$/i.test(t.s)).forEach(t=>texto("ESC-MARCAS",t.x,t.y,0.22,t.s));
+
+  // os dois eixos de referência, cruzando no centro do pilar comum
+  const ref = eixosReferencia();
+  if(ref){
+    const PAD = [0.50, 0.18, 0.09, 0.18];        // traço e ponto, segmento a segmento
+    const eixo = (de, ate, v, dir) => {
+      let t = de, k = 0;
+      while(t < ate - 1e-6){
+        const d = Math.min(PAD[k % 4], ate - t);
+        if(k % 2 === 0) linha("ESC-EIXOS", dir==="x" ? [v,t] : [t,v], dir==="x" ? [v,t+d] : [t+d,v]);
+        t += d; k++;
+      }
+    };
+    const bX = GEO.bb.x1 + 0.6, bY = GEO.bb.y1 + 0.6;
+    eixo(GEO.bb.y0 - 2.2, bY, ref.x, "x");
+    eixo(GEO.bb.x0 - 2.2, bX, ref.y, "y");
+    circ("ESC-EIXOS", [ref.x, bY], 0.42); texto("ESC-EIXOS", ref.x-0.10, bY-0.11, 0.30, ref.rotX.split(" ")[1]);
+    circ("ESC-EIXOS", [bX, ref.y], 0.42); texto("ESC-EIXOS", bX-0.10, ref.y-0.11, 0.30, ref.rotY.split(" ")[1]);
+  }
 
   // cotas de todos os tipos, cada cadeia na sua posição
   ["placa","barrote","longarina","escora","escora-viga"].forEach((tipo,k)=>{
