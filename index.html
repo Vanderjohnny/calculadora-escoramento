@@ -88,6 +88,11 @@ button.big[disabled]{opacity:.45;cursor:not-allowed;filter:none}
 .impBox button{flex:none}
 .impBox .arq{font-family:var(--f-num);font-size:10.5px;color:var(--ink-3);overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
+/* os tres que geram arquivo ficam logo abaixo de importar: e a ordem do
+   trabalho — entra o arquivo, saem as pranchas, o DXF e o memorial */
+.expZone{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:7px}
+.expZone button{padding:9px 4px;font-size:12px;letter-spacing:.04em;white-space:nowrap}
+@media (max-width:700px){.expZone{grid-template-columns:1fr}}
 .viewport{position:relative;background:var(--panel);height:min(72vh,720px);min-height:380px;overflow:hidden;cursor:grab;touch-action:none}
 .viewport.drag{cursor:grabbing}
 .viewport svg{display:block;width:100%;height:100%}
@@ -216,7 +221,6 @@ footer.sheet b{color:var(--ink-2)}
     <h1>Escoramento NBR 15696
       <small id="stamp">—</small></h1>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-      <span id="expZone"></span>
       <a class="unk" href="https://unk.group" target="_blank" rel="noopener noreferrer" title="UNK Group">
         <span>powered by</span>
         <svg viewBox="0 0 64 64" width="26" height="26" role="img" aria-label="UNK">
@@ -238,7 +242,8 @@ footer.sheet b{color:var(--ink-2)}
       <div class="dropzone impBox" id="dz" style="padding:6px">
         <button class="big azul" id="imp">Importar</button>
         <span class="arq" id="arqNome">ou arraste o arquivo aqui</span>
-        <input type="file" id="file" accept=".dxf,.dwg,.ifc,.pdf,.txt" hidden></div></div>
+        <input type="file" id="file" accept=".dxf,.dwg,.ifc,.pdf,.txt" hidden></div>
+      <div id="expZone" class="expZone"></div></div>
     <div><label for="sysVert">Estrutura de apoio</label><select id="sysVert"></select></div>
     <div id="boxPav" hidden><label for="pavSel">Pavimento do modelo</label>
       <select id="pavSel"></select></div>
