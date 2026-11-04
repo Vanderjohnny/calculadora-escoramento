@@ -11,30 +11,16 @@
 <style>
 /* Layout: prancha de escoramento em tela cheia, barra de controles enxuta por cima
    e o memorial técnico recolhido em gavetas embaixo. */
-:root{
-  --bg:#eceef1; --panel:#ffffff; --ink:#15181d; --ink-2:#4e5661; --ink-3:#7c8694;
-  --line:#d4d9e0; --line-2:#e6eaef;
-  --accent:#1a4f8a; --accent-soft:#e7eef7;
-  --ok:#1b6b42; --ok-soft:#e4f1e9; --warn:#8a5a00; --warn-soft:#fbf0d9; --bad:#9b2226; --bad-soft:#fae7e7;
-  --plan:#b3bcc7; --plan-2:#8d98a6; --pilar:#5d6774;
-  --esc:#c2410c; --longa:#1a4f8a; --barr:#0f766e; --placa:#64748b;
+:root, :root[data-theme="dark"]{
+  --bg:#101317; --panel:#1a1e24; --ink:#e8ecf1; --ink-2:#a9b3c0; --ink-3:#7c8694;
+  --line:#2e353e; --line-2:#242a31; --accent:#6fa8e8; --accent-soft:#1d2a3a;
+  --ok:#67c895; --ok-soft:#16281f; --warn:#e0b05a; --warn-soft:#2b2214; --bad:#ef8a8d; --bad-soft:#2d1a1b;
+  --plan:#4a5460; --plan-2:#69758a; --pilar:#8b97a6;
+  --esc:#fb8a4c; --longa:#6fa8e8; --barr:#45b8ac; --placa:#8b97a6; color-scheme:dark;
+  --unk:#c4561a;                                  /* laranja da marca */
   --f-disp:"Archivo Narrow",'Arial Narrow',system-ui,sans-serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,"Courier New",monospace;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#101317; --panel:#1a1e24; --ink:#e8ecf1; --ink-2:#a9b3c0; --ink-3:#7c8694;
-  --line:#2e353e; --line-2:#242a31; --accent:#6fa8e8; --accent-soft:#1d2a3a;
-  --ok:#67c895; --ok-soft:#16281f; --warn:#e0b05a; --warn-soft:#2b2214; --bad:#ef8a8d; --bad-soft:#2d1a1b;
-  --plan:#4a5460; --plan-2:#69758a; --pilar:#8b97a6;
-  --esc:#fb8a4c; --longa:#6fa8e8; --barr:#45b8ac; --placa:#8b97a6; color-scheme:dark;
-}}
-:root[data-theme="dark"]{
-  --bg:#101317; --panel:#1a1e24; --ink:#e8ecf1; --ink-2:#a9b3c0; --ink-3:#7c8694;
-  --line:#2e353e; --line-2:#242a31; --accent:#6fa8e8; --accent-soft:#1d2a3a;
-  --ok:#67c895; --ok-soft:#16281f; --warn:#e0b05a; --warn-soft:#2b2214; --bad:#ef8a8d; --bad-soft:#2d1a1b;
-  --plan:#4a5460; --plan-2:#69758a; --pilar:#8b97a6;
-  --esc:#fb8a4c; --longa:#6fa8e8; --barr:#45b8ac; --placa:#8b97a6; color-scheme:dark;
 }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;margin:0}
@@ -49,6 +35,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   padding-block:10px;max-width:1600px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
 h1{font-family:var(--f-disp);font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:0}
 h1 small{display:block;font-family:var(--f-num);font-size:10.5px;font-weight:400;letter-spacing:.01em;text-transform:none;color:var(--ink-3);margin-top:1px}
+
+/* ---- assinatura ---- */
+.unk{display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:var(--ink-3)}
+.unk span{font-family:var(--f-disp);font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.unk:hover{color:var(--ink-2)}
+.unk svg{display:block;flex:none}
 
 /* ---- faixa de entrada essencial ---- */
 .entrada{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;background:var(--panel);
@@ -188,9 +180,17 @@ footer.sheet b{color:var(--ink-2)}
   <div class="top-in">
     <h1>Escoramento NBR 15696
       <small id="stamp">—</small></h1>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
       <span id="expZone"></span>
-      <button class="ghost" id="themeBtn" title="Alternar tema">◐ tema</button>
+      <a class="unk" href="https://unk.group" target="_blank" rel="noopener noreferrer" title="UNK Group">
+        <span>powered by</span>
+        <svg viewBox="0 0 64 64" width="26" height="26" role="img" aria-label="UNK">
+          <rect x="0.5" y="0.5" width="63" height="63" rx="12" fill="var(--panel)" stroke="var(--line)"/>
+          <text x="32" y="40" text-anchor="middle" font-family="Archivo Narrow, Arial Narrow, sans-serif"
+                font-size="27" font-weight="700" letter-spacing="1" fill="var(--ink)">UNK</text>
+          <rect x="15" y="46" width="34" height="4" rx="2" fill="var(--unk)"/>
+        </svg>
+      </a>
     </div>
   </div>
 </header>
@@ -4926,15 +4926,8 @@ document.querySelectorAll("input,select").forEach(el=>{
   const f = /^v(Plan|Marc|Placa|NumPlaca|Barr|Long|Esc|VigaEsc)$/.test(el.id) ? aplicarZoom : render;
   el.addEventListener("input", f); el.addEventListener("change", f);
 });
-$("themeBtn").onclick = ()=>{
-  const r = document.documentElement;
-  const dark = r.getAttribute("data-theme")==="dark" ||
-    (!r.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
-  r.setAttribute("data-theme", dark?"light":"dark");
-  try{ localStorage.setItem("esc-theme", dark?"light":"dark"); }catch(_){}
-  aplicarZoom();
-};
-try{ const t=localStorage.getItem("esc-theme"); if(t) document.documentElement.setAttribute("data-theme",t); }catch(_){}
+// Tema único, escuro: a prancha é desenho técnico sobre fundo escuro, e o
+// jogo de pranchas do PDF tem a sua própria paleta clara, para o papel.
 
 // zoom e pan
 const vp = $("vp");
