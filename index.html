@@ -2337,10 +2337,13 @@ function gerar3D(cfg, layout, rGov){
   const M = GEO.mask, bb = M.bb;
   // o centro do recorte cai no centro de massa da laje, não da caixa:
   // a caixa inclui a margem e o vazio central, e o recorte caía fora do pavimento
-  if(V3.cx===null){ V3.cx = M.cxm; V3.cy = M.cym; }     // pivô da órbita
-  // O pavimento inteiro entra no desenho. A janela de recorte existia para
-  // segurar o peso; com um andar por vez e a laje leve, ela só escondia coisa.
-  const R = {x0:bb.x0-1, x1:bb.x1+1, y0:bb.y0-1, y1:bb.y1+1};
+  if(V3.cx===null){ V3.cx = M.cxm; V3.cy = M.cym; }   // pivô da órbita
+  // Não há caixa de corte no modelo. Vinda do IFC, a caixa do pavimento é
+  // montada a partir dos próprios sólidos, então nada fica de fora; vinda de
+  // prancha, a folga de 1 m segura o selo e o bloco de detalhe, que não são
+  // pavimento. Antes havia uma janela fixa de 60 m que cortava o desenho.
+  const folga = PAVS.length ? 1e4 : 1;
+  const R = {x0:bb.x0-folga, x1:bb.x1+folga, y0:bb.y0-folga, y1:bb.y1+folga};
   const dentro = (x,y) => x>=R.x0 && x<=R.x1 && y>=R.y0 && y<=R.y1;
   const corta = s => {   // recorta um segmento na janela
     const [a,b]=s;
@@ -2500,18 +2503,34 @@ function diagPlano(){
   const M = GEO && GEO.mask;
   return M ? Math.hypot(M.bb.x1-M.bb.x0, M.bb.y1-M.bb.y0) : 30;
 }
-function vistaGeral(){
+/* Enquadra pela esfera que envolve o que está desenhado, e não por estimativa
+   da altura: a cada pavimento que sobe o modelo muda de tamanho e de centro,
+   e qualquer palpite deixa o prédio cortado embaixo. O quadro é quadrado e
+   recorta pelo lado menor, então o ângulo que manda é o do lado menor. */
+function envolver(G){
+  let x0=Infinity,y0=Infinity,z0=Infinity,x1=-Infinity,y1=-Infinity,z1=-Infinity;
+  const ver = p => { if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0];
+                     if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1];
+                     if(p[2]<z0)z0=p[2]; if(p[2]>z1)z1=p[2]; };
+  (G && G.faces || []).forEach(f=>f.pts.forEach(ver));
+  if(!isFinite(x0)) return null;
+  return {c:[(x0+x1)/2,(y0+y1)/2,(z0+z1)/2], r:0.5*Math.hypot(x1-x0, y1-y0, z1-z0),
+          alt:z1-z0, base:z0};
+}
+function vistaGeral(G){
+  const E = envolver(G);
   const M = GEO && GEO.mask;
-  const alt = ULT.alt3d || 0;                    // altura do trecho de prédio na tela
-  CAM.tx = M ? M.cxm : 0; CAM.ty = M ? M.cym : 0; CAM.tz = 1.4 + alt/2;
-  CAM.yaw = Math.PI*0.25; CAM.pitch = alt > 8 ? -0.22 : -0.42;
-  // A projeção é quadrada e o quadro recorta pelo lado menor, então numa tela
-  // larga o que cabe na vertical encolhe na proporção. Sem isto o prédio sai
-  // cortado em cima e embaixo.
-  const el = $("vp");
-  const asp = (el && el.clientHeight) ? Math.max(1, el.clientWidth/el.clientHeight) : 1.7;
-  const tgV = Math.tan(CAM.fov*Math.PI/360)/asp;
-  CAM.dist = Math.max(diagPlano()*0.80, alt ? (alt/2)/tgV*1.18 : 0);
+  if(!E){
+    CAM.tx = M ? M.cxm : 0; CAM.ty = M ? M.cym : 0; CAM.tz = 1.4;
+    CAM.yaw = Math.PI*0.25; CAM.pitch = -0.42; CAM.dist = diagPlano()*0.80;
+    CAM.pronta = true; return;
+  }
+  CAM.tx = E.c[0]; CAM.ty = E.c[1]; CAM.tz = E.c[2];
+  CAM.yaw = Math.PI*0.25;
+  CAM.pitch = E.alt > 8 ? -0.20 : -0.42;         // prédio alto se olha mais de frente
+  // meia-abertura do lado que recorta: a projeção vai até ±1,05 e k = 1/tg(fov/2)
+  const meia = Math.atan(1.05*Math.tan(CAM.fov*Math.PI/360));
+  CAM.dist = Math.max(2, E.r/Math.sin(meia)*1.04);
   CAM.pronta = true;
 }
 function entrarNoModelo(){
@@ -2543,7 +2562,7 @@ function desenhar3D(cfg, layout, rGov){
   ULT.alt3d = G.altura || 0;
   ULT.pav3d = G.nPav || 1;
   ULT.esc3d = G.nEsc || 0;
-  if(!CAM.pronta) vistaGeral();
+  if(!CAM.pronta) vistaGeral(G);
 
   const b = baseCam(), P = posCam();
   const k = 1/Math.tan(CAM.fov*Math.PI/360);
@@ -4744,7 +4763,7 @@ function modo3d(on){
   $("zoomhint").textContent = on
     ? "arrastar = girar em torno da planta · roda = aproximar · shift+arrastar = mover o pivô"
     : "roda = zoom · arrastar = mover · clicar = foco do 3D";
-  if(on && !CAM.pronta) vistaGeral();
+  if(on) CAM.pronta = false;
   if(!on) enquadrar();
   render();
 }
@@ -4752,7 +4771,7 @@ $("to3d").onclick = ()=>modo3d(true);
 $("to2d").onclick = ()=>modo3d(false);
 $("toCorte").onclick = ()=>modoCorte(true);
 $("corteTo2d").onclick = ()=>modoCorte(false);
-$("geral3").onclick = ()=>{ vistaGeral(); render(); };
+$("geral3").onclick = ()=>{ CAM.pronta = false; render(); };
 $("dentro3").onclick = ()=>{ entrarNoModelo(); render(); };
 
 // Barra do pavimento: o nome do que está sendo concretado, o que lhe serve
