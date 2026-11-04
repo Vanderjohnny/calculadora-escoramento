@@ -74,6 +74,20 @@ button:hover{border-color:var(--accent);color:var(--accent)}
 button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 button.primary:hover{filter:brightness(1.12);color:#fff}
 button.ghost{background:none;border-color:transparent;color:var(--accent);padding:3px 5px;font-size:11.5px}
+/* Botões de ação: grandes e com cor própria, porque são o que se procura na
+   tela — importar à esquerda, os três que geram arquivo à direita. */
+button.big{padding:9px 18px;font-family:var(--f-disp);font-size:13px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;border:0;color:#fff}
+button.big:hover{filter:brightness(1.14);color:#fff}
+button.azul{background:#1d6fd0}
+button.verde{background:#15803d}
+button.cinza{background:#4b5563}
+button.laranja{background:#c4561a}
+button.big[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+.impBox{display:flex;gap:8px;align-items:center}
+.impBox button{flex:none}
+.impBox .arq{font-family:var(--f-num);font-size:10.5px;color:var(--ink-3);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
 .viewport{position:relative;background:var(--panel);height:min(72vh,720px);min-height:380px;overflow:hidden;cursor:grab;touch-action:none}
 .viewport.drag{cursor:grabbing}
 .viewport svg{display:block;width:100%;height:100%}
@@ -151,18 +165,39 @@ footer.sheet b{color:var(--ink-2)}
 /* ---- folha de impressão: jogo de pranchas A3 paisagem + memorial ---- */
 #folha,#pdfPranchas{display:none}
 @media print{
-  @page{size:A3 landscape;margin:8mm}
+  /* A4 paisagem, a folha toda: o desenho à esquerda e, ao lado, o que o
+     canteiro precisa ler sem procurar — quantitativo, legenda e custo. */
+  @page{size:A4 landscape;margin:5mm}
   body{background:#fff;color:#000;font-size:10px}
-  header.top,.entrada,.ctrl,.legenda,details.gav,.zoomhint,.prancha,.kpis{display:none!important}
+  header.top,.entrada,.ctrl,.legenda,details.gav,.zoomhint,.prancha,.kpis,.abas,
+  #abaOrc,#abaConf,#abaAvan{display:none!important}
   .wrap{max-width:none;padding:0}
   #pdfPranchas{display:block}
-  .pdfPag{page-break-after:always;height:192mm;display:flex;flex-direction:column;border:1px solid #000}
+  body.soMemorial #pdfPranchas{display:none!important}
+  body.soPranchas #folha{display:none!important}
+  .pdfPag{page-break-after:always;height:197mm;display:flex;flex-direction:column;
+    border:1px solid #000;overflow:hidden}
+  .pdfPag:last-child{page-break-after:auto}
   .pdfCab{display:flex;justify-content:space-between;align-items:baseline;gap:6mm;
-    padding:2mm 3mm;border-bottom:1px solid #000;font-size:11px}
+    padding:1.6mm 3mm;border-bottom:1px solid #000;font-size:10.5px}
   .pdfCab b{font-family:var(--f-disp);letter-spacing:.06em;text-transform:uppercase}
-  .pdfCab span{font-family:var(--f-num);font-size:8.5px;color:#444;text-align:right}
-  .pdfDes{flex:1;min-height:0;padding:2mm}
+  .pdfCab span{font-family:var(--f-num);font-size:7.5px;color:#444;text-align:right}
+  .pdfCorpo{flex:1;min-height:0;display:flex}
+  .pdfDes{flex:1;min-width:0;padding:1.5mm}
   .pdfDes svg{width:100%;height:100%;display:block}
+  .pdfLado{width:58mm;flex:none;border-left:1px solid #000;padding:2mm 2.5mm;
+    font-family:var(--f-num);font-size:7px;line-height:1.45;color:#000;overflow:hidden}
+  .pdfLado h4{font-family:var(--f-disp);font-size:8px;font-weight:700;letter-spacing:.09em;
+    text-transform:uppercase;margin:0 0 1mm;padding-bottom:0.6mm;border-bottom:1px solid #000}
+  .pdfLado h4+h4,.pdfLado div+h4{margin-top:2.6mm}
+  .pdfLado table{width:100%;border-collapse:collapse;font-size:7px}
+  .pdfLado td{padding:0.5mm 0;border:0;text-align:right;vertical-align:top}
+  .pdfLado td:first-child{text-align:left;padding-right:1.5mm}
+  .pdfLado .leg{display:flex;gap:1.5mm;align-items:center;margin:0.5mm 0}
+  .pdfLado .leg i{width:5mm;height:0;border-top:1.2px solid;flex:none}
+  .pdfLado .leg u{width:2mm;height:2mm;border-radius:50%;border:1px solid;text-decoration:none;flex:none}
+  .pdfLado .leg s{width:4mm;height:2.6mm;border:0.8px dashed;text-decoration:none;flex:none}
+  .pdfLado .obs{font-size:6.4px;color:#555;margin-top:1.5mm;line-height:1.4}
   #pdfPranchas{--plan:#9aa3ad;--plan-2:#5c6673;--pilar:#333;--esc:#b4440c;--longa:#13457a;
     --barr:#0b5f58;--placa:#6b7480;--ink-2:#111;--ink-3:#555}
   #folha{display:block;font-family:var(--f-num);font-size:9px;line-height:1.5;color:#000;column-count:3;column-gap:8mm}
@@ -200,7 +235,10 @@ footer.sheet b{color:var(--ink-2)}
   <!-- ====== ENTRADA ====== -->
   <div class="entrada">
     <div style="grid-column:span 2"><label>Planta de formas ou modelo estrutural <span class="u">(DWG, DXF ou IFC)</span></label>
-      <div class="dropzone" id="dz" style="padding:5px"><input type="file" id="file" accept=".dxf,.dwg,.ifc,.pdf,.txt" style="font-size:10.5px;width:100%"></div></div>
+      <div class="dropzone impBox" id="dz" style="padding:6px">
+        <button class="big azul" id="imp">Importar</button>
+        <span class="arq" id="arqNome">ou arraste o arquivo aqui</span>
+        <input type="file" id="file" accept=".dxf,.dwg,.ifc,.pdf,.txt" hidden></div></div>
     <div><label for="sysVert">Estrutura de apoio</label><select id="sysVert"></select></div>
     <div id="boxPav" hidden><label for="pavSel">Pavimento do modelo</label>
       <select id="pavSel"></select></div>
@@ -3635,7 +3673,7 @@ function paneCatHtml(cfg){
 /* ---- jogo de pranchas para o PDF ----
    Uma geral sem cotas e uma por elemento, cotada, sempre com planta e marcas. */
 const PRANCHAS_PDF = [
-  {t:"Prancha geral — conjunto montado", cota:null,
+  {t:"Prancha geral — conjunto montado", cota:null, geral:true,
    vis:{plan:1,marc:1,placa:1,barr:1,long:1,esc:1,vigaEsc:1}},
   {t:"Placas de fôrma — paginação e numeração", cota:"placa",
    vis:{plan:1,marc:1,placa:1,numPlaca:1}},
@@ -3697,6 +3735,115 @@ function desenharCorte(svg, plano){
   });
 }
 
+// Qual pavimento esta prancha representa: com modelo é o que está na tela,
+// com prancha é o nível escolhido ou o único que ela traz.
+function nomeDoPavimento(){
+  const R = ULT.proj;
+  if(R && R.bons.length) return R.bons[Math.min(V3.topo, R.bons.length-1)].P.nome;
+  const sel = $("pavLaje");
+  return (sel && sel.value && sel.selectedOptions[0]) ? sel.selectedOptions[0].text : "pavimento único";
+}
+// Custo que cabe ao pavimento desenhado. Com modelo vem do projeto; com
+// prancha é calculado aqui do mesmo jeito, para a folha nunca sair sem ele.
+function custoDaPrancha(cfg, M){
+  const R = ULT.proj;
+  if(R && R.bons.length) return R.bons[Math.min(V3.topo, R.bons.length-1)].custo;
+  const area = areaBruta(cfg, M.areaTot).a;
+  const jogos = Math.max(1, ORC.jogos), ciclo = Math.max(1, ORC.ciclo);
+  const reuso = Math.max(1, num("reusoComp") || 10);
+  let alug = 0, cons = 0;
+  M.itens.forEach(it=>{
+    const pr = PRECOS[it.k] || {venda:0, aluguel:0};
+    if(it.consumivel) cons += it.qtd*pr.venda/reuso;
+    else alug += it.qtd*jogos*pr.aluguel*(ciclo/30);
+  });
+  const serv = (ORC.montagem+ORC.desmontagem)*area;
+  return {serv, alug, cons, tot:serv+alug+cons};
+}
+
+/* Coluna ao lado do desenho: o que a folha precisa dizer sozinha, no
+   canteiro, sem o jogo inteiro na mão — o que aquela prancha mostra, quanto
+   dá, o que significa cada traço e quanto custa o pavimento. */
+function ladoDaPrancha(p, sub, cfg, layout, rGov, M, plano){
+  const vd = VERTICAIS[cfg.vertKey];
+  const lin = (a,b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
+  const tab = l => `<table>${l.join("")}</table>`;
+  const C = {esc:"#b4440c", longa:"#13457a", barr:"#0b5f58", placa:"#6b7480", plan:"#9aa3ad"};
+  const leg = [], item = [];
+  const vis = p.vis || {};
+
+  if(p.corte && plano){
+    item.push(lin("Chapa", `${fmt(plano.LW*100,0)} × ${fmt(plano.LH*100,0)} cm`),
+      lin("Chapas ao todo", fmt(plano.chapasTotal,0)),
+      lin("Inteiras", fmt(plano.inteiras,0)),
+      lin("De recorte", fmt(plano.chapas.length,0)),
+      lin("Aproveitamento", fmt(plano.aproveitamento*100,0)+"%"));
+    leg.push(`<div class="leg"><s style="border-color:${C.placa}"></s> peça de recorte, com o número da planta</div>`);
+  } else {
+    if(vis.placa){
+      item.push(lin("Placas", fmt(layout.placas.length,0)),
+        lin("Dimensão", `${fmt(cfg.placa.b*100,0)} × ${fmt(cfg.placa.h*100,0)} cm`),
+        lin("Fôrma de contato", cfg.forma.nome));
+      leg.push(`<div class="leg"><s style="border-color:${C.placa}"></s> placa de fôrma</div>`);
+    }
+    if(vis.barr){
+      item.push(lin("Barrotes", fmt(Math.ceil(M.mBar*1.08/Math.max(cfg.barrote.comp||2,0.1)),0)+" peças"),
+        lin("Metros", fmt(M.mBar,0)+" m"),
+        lin("Espaçamento", fmt(rGov.sBarrote,2)+" m"),
+        lin("Peça", cfg.barrote.nome));
+      leg.push(`<div class="leg"><i style="border-color:${C.barr}"></i> barrote</div>`);
+    }
+    if(vis.long){
+      item.push(lin("Longarinas", fmt(Math.ceil(M.mLong*1.08/Math.max(cfg.viga.comp||2.3,0.1)),0)+" peças"),
+        lin("Metros", fmt(M.mLong,0)+" m"),
+        lin("Espaçamento", fmt(rGov.sViga,2)+" m"),
+        lin("Peça", cfg.viga.nome));
+      leg.push(`<div class="leg"><i style="border-color:${C.longa}"></i> longarina</div>`);
+    }
+    if(vis.esc){
+      item.push(lin("Escoras de laje", fmt(layout.escoras.length,0)),
+        lin("Malha", `${fmt(rGov.sViga,2)} × ${fmt(rGov.sEsc,2)} m`),
+        lin("Apoio", vd.nome),
+        lin("Pé-direito", fmt(cfg.H,2)+" m"));
+      leg.push(`<div class="leg"><u style="border-color:${C.esc}"></u> escora de laje</div>`);
+    }
+    if(vis.vigaEsc){
+      item.push(lin("Escoras de viga", fmt(layout.escVigas.length,0)),
+        lin("Eixos de viga", fmt((GEO.eixos||[]).length,0)),
+        lin("Espaçamento", ULT.rVigaGov ? fmt(ULT.rVigaGov.s,2)+" m" : "—"));
+      leg.push(`<div class="leg"><b style="color:${C.esc}">&times;</b> escora de viga</div>`);
+    }
+    if(vis.plan) leg.push(`<div class="leg"><i style="border-color:${C.plan}"></i> planta importada</div>`);
+    if(p.geral || !item.length){                       // prancha geral: o resumo do conjunto
+      item.length = 0;
+      item.push(lin("Área de fôrma", fmt(areaBruta(cfg, M.areaTot).a,0)+" m²"),
+        lin("Apoios verticais", fmt(M.nAp,0)),
+        lin("Placas", fmt(layout.placas.length,0)),
+        lin("Barrotes", fmt(M.mBar,0)+" m"),
+        lin("Longarinas", fmt(M.mLong,0)+" m"),
+        lin("Malha", `${fmt(rGov.sViga,2)} × ${fmt(rGov.sEsc,2)} m`),
+        lin("Pé-direito", fmt(cfg.H,2)+" m"),
+        lin("Apoio", vd.nome));
+    }
+  }
+
+  const c = custoDaPrancha(cfg, M);
+  const t = (ULT.proj && ULT.proj.bons.length)
+    ? ULT.proj.bons[Math.min(V3.topo, ULT.proj.bons.length-1)].t
+    : temposDoPav(areaBruta(cfg, M.areaTot).a, cfg);
+  return `<h4>${p.corte ? "Plano de corte" : "Quantitativo"}</h4>${tab(item)}
+    ${leg.length ? `<h4>Legenda</h4><div>${leg.join("")}</div>` : ""}
+    <h4>Pavimento</h4>${tab([
+      lin("Montagem", fmt(t.diaMont,1)+" dias"),
+      lin("Desmontagem", fmt(t.diaDesm,1)+" dias"),
+      lin("Serviço", BRL(c.serv)),
+      lin("Equipamento", BRL(c.alug)),
+      lin("Consumível", BRL(c.cons)),
+      lin("<b>Custo do pavimento</b>", `<b>${BRL(c.tot)}</b>`)])}
+    <div class="obs">${sub}<br>Preços de partida, não são cotação. Prazos de desforma conforme
+      o projeto estrutural. NBR 15696.</div>`;
+}
+
 function montarPranchasPdf(cfg, layout, rGov){
   const cont = $("pdfPranchas");
   cont.innerHTML = "";
@@ -3710,6 +3857,7 @@ function montarPranchasPdf(cfg, layout, rGov){
     "escora-viga":`${layout.escVigas.length} escoras em ${(GEO.eixos||[]).length} eixos de viga · cota corrida sobre cada eixo`
   };
   const plano = ULT.plano;
+  const M = listaMateriais(ULT.lajes||[], ULT.vigas||[], cfg, layout);
   PRANCHAS_PDF.forEach((p,i)=>{
     const d = document.createElement("div");
     d.className = "pdfPag";
@@ -3718,8 +3866,11 @@ function montarPranchasPdf(cfg, layout, rGov){
          + `${plano.inteiras} inteiras e ${plano.chapas.length} de recorte · medidas em cm` : "")
       : (p.cota ? legenda[p.cota] : "sem cotas");
     d.innerHTML = `<div class="pdfCab"><b>${p.t}</b>
-      <span>${val("projName")||ULT.nome||""} · ${sub} · folha ${i+1}/${PRANCHAS_PDF.length}</span></div>
-      <div class="pdfDes"><svg></svg></div>`;
+      <span>${val("projName")||ULT.nome||""} · ${nomeDoPavimento()} · folha ${i+1}/${PRANCHAS_PDF.length}</span></div>
+      <div class="pdfCorpo">
+        <div class="pdfDes"><svg></svg></div>
+        <div class="pdfLado">${ladoDaPrancha(p, sub, cfg, layout, rGov, M, plano)}</div>
+      </div>`;
     cont.appendChild(d);
     const sv = d.querySelector("svg");
     if(p.corte){ if(plano) desenharCorte(sv, plano); }
@@ -4903,11 +5054,14 @@ $("pavTudo").addEventListener("change", ()=>{ V3.tudo = $("pavTudo").checked;
   CAM.pronta = false; render(); });
 ["v3Laje","v3Viga","v3Pil","v3Placa","v3Barr","v3Long","v3Esc"].forEach(id=>
   $(id).addEventListener("change", render));
-$("file").onchange = e => { if(e.target.files[0]) carregarArquivo(e.target.files[0]); };
+$("imp").onclick = ()=>$("file").click();
+$("file").onchange = e => { const f = e.target.files[0];
+  if(f){ $("arqNome").textContent = f.name; carregarArquivo(f); } };
 const dz = $("dz");
 ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("hot");}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("hot");}));
-dz.addEventListener("drop", e=>{ const f=e.dataTransfer.files[0]; if(f) carregarArquivo(f); });
+dz.addEventListener("drop", e=>{ const f=e.dataTransfer.files[0];
+  if(f){ $("arqNome").textContent = f.name; carregarArquivo(f); } });
 $("parseBtn").onclick = ()=> aplicar(lerMarcas(val("paste").split(/\r?\n|[;\t]/).map(s=>({s})).filter(i=>i.s.trim())), "Texto lido");
 $("clearBtn").onclick = ()=>{ ELS=[]; render(); };
 $("areaTot").addEventListener("input", ()=>{
@@ -4994,17 +5148,28 @@ vp.addEventListener("pointermove", e=>{
 const solto = (()=>{ try{ return window.self===window.top; }catch(_){ return false; } })();
 if(solto){
   // no cabeçalho, para continuarem à mão também na vista 3D
-  $("expZone").innerHTML = `<button class="primary" id="pdf">exportar PDF</button>
-    <button id="dxf">exportar DXF</button>`;
-  $("pdf").onclick = ()=>{
+  $("expZone").innerHTML = `<button class="big verde" id="pdf">Gerar PDF</button>
+    <button class="big cinza" id="dxf">Gerar DXF</button>
+    <button class="big laranja" id="mem">Gerar memoriais</button>`;
+  // Imprimir o jogo de pranchas e imprimir o memorial são duas saídas
+  // diferentes: uma é desenho para o canteiro, a outra é texto para arquivo.
+  const imprimir = (classe, antes) => {
+    if(!GEO || !GEO.bb){ alert("Importe a planta ou o modelo antes de gerar o arquivo."); return; }
+    if(antes) antes();
+    document.body.classList.add(classe);
+    const limpa = ()=>document.body.classList.remove(classe);
+    window.addEventListener("afterprint", limpa, {once:true});
+    window.print();
+    setTimeout(limpa, 2000);            // navegador que não dispara afterprint
+  };
+  $("pdf").onclick = ()=>imprimir("soPranchas", ()=>
+    montarPranchasPdf(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov));
+  $("mem").onclick = ()=>imprimir("soMemorial", ()=>{
     // o quadro de pavimentos só é calculado com a gaveta aberta, e ele vai no memorial
     if(PAVS.length && !$("gavProj").open){ $("gavProj").open = true; render(); }
-    // o jogo de pranchas só existe na hora de imprimir
-    montarPranchasPdf(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov);
-    window.print();
-  };
+  });
   $("dxf").onclick = ()=>{
-    if(!GEO || !GEO.bb || !ULT.rGov){ alert("Importe uma prancha antes de exportar o DXF."); return; }
+    if(!GEO || !GEO.bb || !ULT.rGov){ alert("Importe a planta ou o modelo antes de gerar o DXF."); return; }
     const nome = (val("projName")||ULT.nome||"escoramento").replace(/[^\w\-. ]+/g,"").trim();
     baixar(nome+" - ESCORAMENTO.dxf", gerarDXF(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov), "image/vnd.dxf");
   };

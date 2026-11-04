@@ -126,9 +126,14 @@ O nível mais baixo do modelo fica de fora: ele apoia no solo, não em escora.
 
 ## Exportar
 
-**PDF** — jogo de seis pranchas em A3 paisagem: uma geral sem cotas e cinco cotadas, uma por
-elemento (placas, barrotes, longarinas, escoras de laje, escoras de viga), todas com planta e
-marcas. Mais o memorial de cálculo.
+**Gerar PDF** — jogo de sete pranchas em A4 paisagem, ocupando a folha inteira: uma geral, o plano
+de corte das chapas e cinco cotadas, uma por elemento (placas, barrotes, longarinas, escoras de
+laje, escoras de viga). Ao lado do desenho, cada folha traz o seu próprio quantitativo, a legenda
+dos traços que aparecem nela e o custo do pavimento — montagem, desmontagem, serviço, equipamento
+e consumível. A folha se explica sozinha no canteiro.
+
+**Gerar memoriais** — o memorial de cálculo em texto corrido, com o quadro de pavimentos e a linha
+do tempo da obra, em arquivo separado do jogo de pranchas.
 
 **DXF** — a grade de volta para o CAD, em metros, no mesmo sistema de coordenadas da planta
 importada, separada em camadas: `ESC-PLACAS`, `ESC-BARROTES`, `ESC-LONGARINAS`, `ESC-ESCORAS`,
