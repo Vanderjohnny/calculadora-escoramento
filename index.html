@@ -5145,16 +5145,24 @@ vp.addEventListener("pointermove", e=>{
 ["pointerup","pointercancel"].forEach(t=>vp.addEventListener(t, ()=>{ drag=null; vp.classList.remove("drag"); }));
 
 // exportação: a caixa de impressão só existe fora do frame do artefato
+/* Dentro de um visualizador em frame a página não recebe permissão de
+   imprimir nem de baixar. Os botões apareciam só fora dele, e quem abria o
+   app no visualizador não achava saída nenhuma — pior que um botão que
+   explica por que não pode. Agora aparecem sempre e dizem o que fazer. */
 const solto = (()=>{ try{ return window.self===window.top; }catch(_){ return false; } })();
-if(solto){
+{
   // no cabeçalho, para continuarem à mão também na vista 3D
   $("expZone").innerHTML = `<button class="big verde" id="pdf">Gerar PDF</button>
     <button class="big cinza" id="dxf">Gerar DXF</button>
     <button class="big laranja" id="mem">Gerar memoriais</button>`;
   // Imprimir o jogo de pranchas e imprimir o memorial são duas saídas
   // diferentes: uma é desenho para o canteiro, a outra é texto para arquivo.
+  const PRESO = "Esta página está aberta dentro de um visualizador, que não dá permissão "
+    + "de imprimir nem de baixar arquivo. Abra o app em uma aba própria para gerar "
+    + "o PDF, o memorial e o DXF.";
   const imprimir = (classe, antes) => {
     if(!GEO || !GEO.bb){ alert("Importe a planta ou o modelo antes de gerar o arquivo."); return; }
+    if(!solto){ alert(PRESO); return; }
     if(antes) antes();
     document.body.classList.add(classe);
     const limpa = ()=>document.body.classList.remove(classe);
@@ -5170,10 +5178,15 @@ if(solto){
   });
   $("dxf").onclick = ()=>{
     if(!GEO || !GEO.bb || !ULT.rGov){ alert("Importe a planta ou o modelo antes de gerar o DXF."); return; }
+    if(!solto){ alert(PRESO); return; }
     const nome = (val("projName")||ULT.nome||"escoramento").replace(/[^\w\-. ]+/g,"").trim();
     baixar(nome+" - ESCORAMENTO.dxf", gerarDXF(ULT.cfg||cfgAtual(), ULT.layout, ULT.rGov), "image/vnd.dxf");
   };
 }
+
+if(!solto) $("expZone").insertAdjacentHTML("afterbegin",
+  `<span style="font-family:var(--f-num);font-size:10.5px;color:var(--warn);max-width:220px;line-height:1.3;display:inline-block">
+     Abra em aba própria para gerar os arquivos — o visualizador bloqueia.</span>`);
 
 $("pCfg").insertAdjacentHTML("beforeend", `<div class="sub">Catálogo</div><div id="catBox"></div>`);
 montarOrcamentoUI();
