@@ -279,7 +279,7 @@ footer.sheet b{color:var(--ink-2)}
         <div id="pavSob" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)">—</div>
       </div>
       <div class="sep"></div>
-      <label class="chk"><input type="checkbox" id="pavTudo"> o prédio inteiro</label>
+      <label class="chk"><input type="checkbox" id="pavTudo"> escorar todos os pavimentos</label>
       <span id="pavConta" style="font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)"></span>
     </div>
     <div class="viewport" id="vp">
@@ -2234,7 +2234,7 @@ function gerarLayout(cfg, rGov, rVigaGov){
    =================================================================== */
 // O que se vê é sempre o pavimento sendo concretado e o que lhe serve de
 // apoio: são os dois que carregam ao mesmo tempo. "tudo" abre o prédio todo.
-const V3 = {modo:false, cx:null, cy:null, topo:0, tudo:false, simples:false};
+const V3 = {modo:false, cx:null, cy:null, topo:0, tudo:false, simples:false, soConcreto:false};
 function faixaPav(R){
   if(!R || !R.bons.length) return [0,0];
   if(V3.tudo) return [0, R.bons.length-1];
@@ -2386,7 +2386,7 @@ function gerar3D(cfg, layout, rGov){
             {pts:q.slice().reverse(), cor, cls, face:"lado"}];
   };
   // escoras com placa de base
-  if(chk("v3Esc")){
+  if(chk("v3Esc") && !V3.soConcreto){
     layout.escoras.filter(([x,y])=>dentro(x,y)).forEach(([x,y])=>{
       if(V3.simples){ F.push(...fita(x,y,0,H,"esc","escora")); return; }
       F.push(...caixa(x-0.03,y-0.03,0, 0.06,0.06,H, "esc","escora"));
@@ -2406,11 +2406,11 @@ function gerar3D(cfg, layout, rGov){
     });
   }
   // longarinas e barrotes
-  if(chk("v3Long") && !V3.simples) layout.longas.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zLong,0.15,hLong,"longa","longarina")); });
-  if(chk("v3Barr") && !V3.simples) layout.barrotes.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zBar,0.08,hBar,"barr","barrote")); });
+  if(chk("v3Long") && !V3.simples && !V3.soConcreto) layout.longas.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zLong,0.15,hLong,"longa","longarina")); });
+  if(chk("v3Barr") && !V3.simples && !V3.soConcreto) layout.barrotes.forEach(s=>{ const c=corta(s); if(c) F.push(...barra(c[0],c[1],zBar,0.08,hBar,"barr","barrote")); });
   // placas
   // placas no tamanho real do corte, não na célula da grade
-  if(chk("v3Placa") && !V3.simples){
+  if(chk("v3Placa") && !V3.simples && !V3.soConcreto){
     const fonte = (ULT.pecas && ULT.pecas.length)
       ? ULT.pecas.map(q=>({x:q.x, y:q.y, w:q.w, h:q.h, rec:!q.inteira}))
       : layout.placas.map(p=>({x:p.x, y:p.y, w:p.w, h:p.h, rec:!p.cheia}));
@@ -2441,27 +2441,44 @@ function gerar3D(cfg, layout, rGov){
 /* --- O prédio inteiro -------------------------------------------------
    Cada pavimento é o mesmo modelo de um andar, erguido até a cota do seu
    apoio. O layout já foi calculado no projeto, então aqui só se desenha. */
+/* O prédio como ele está no dia em que o pavimento é concretado: o que já
+   subiu fica de pé, em concreto, sem escoramento — que já foi desmontado e
+   levado para cima — e só o pavimento da vez aparece escorado. Subindo com
+   a seta, o prédio cresce. */
 function gerar3DProjeto(cfg){
   const R = projetoAtual(cfg);
   if(!R || !R.bons.length) return null;
-  const [de, ate] = faixaPav(R);
-  const sel = R.bons.slice(de, ate+1);
-  V3.simples = sel.length > 2;
+  const topo = Math.max(0, Math.min(V3.topo, R.bons.length-1));
+  const sel = R.bons.slice(0, topo+1);
   const F = [];
-  let prim = null, z0 = sel.length ? sel[0].P.base : 0, z1 = z0;
-  for(const l of sel){
-    const g = comPav(l.P, ()=>gerar3D(l.c, l.layout, l.rGov));
-    if(!g || !g.faces.length) continue;
-    const dz = l.P.base - z0;
-    for(const f of g.faces) F.push({pts:f.pts.map(q=>[q[0], q[1], q[2]+dz]), cor:f.cor, cls:f.cls, face:f.face});
-    if(!prim) prim = g;
-    z1 = Math.max(z1, l.P.cota);
-    if(F.length > 60000) break;                 // teto para a tela não travar
+  let prim = null, z0 = sel[0].P.base, z1 = z0, nEsc = 0;
+  // O concreto dos pavimentos de baixo não muda ao subir de andar, então fica
+  // guardado: sem isto cada degrau refaz a geometria do prédio inteiro.
+  const sig = ["v3Laje","v3Viga","v3Pil"].map(id=>chk(id)?1:0).join("") + (V3.tudo?"T":"");
+  for(let i = 0; i < sel.length; i++){
+    const l = sel[i], atual = (i === topo);
+    // só o pavimento da vez leva escora; os de baixo, nem fôrma
+    V3.soConcreto = !atual && !V3.tudo;
+    V3.simples = !atual;
+    let g;
+    if(atual) g = comPav(l.P, ()=>gerar3D(l.c, l.layout, l.rGov));
+    else {
+      if(l.sigConc !== sig){ l.sigConc = sig; l.conc = null; }
+      g = l.conc || (l.conc = comPav(l.P, ()=>gerar3D(l.c, l.layout, l.rGov)));
+    }
+    if(g && g.faces && g.faces.length){
+      const dz = l.P.base - z0;
+      for(const f of g.faces) F.push({pts:f.pts.map(q=>[q[0], q[1], q[2]+dz]), cor:f.cor, cls:f.cls, face:f.face});
+      if(atual || !prim) prim = g;
+      z1 = Math.max(z1, l.P.cota);
+      if(atual || V3.tudo) nEsc += l.nEsc + l.nEscV;
+    }
+    if(F.length > 70000) break;                 // teto para a tela não travar
   }
-  V3.simples = false;
+  V3.soConcreto = false; V3.simples = false;
   if(!prim) return null;
   return {faces:F, R:prim.R, H:prim.H, zLaje:prim.zLaje, hLaje:prim.hLaje,
-          nPav:sel.length, altura:z1-z0, nomes:[sel[0].P.nome, sel[sel.length-1].P.nome]};
+          nPav:sel.length, nEsc, altura:z1-z0, nomes:[sel[0].P.nome, sel[sel.length-1].P.nome]};
 }
 
 /* --- Câmera em perspectiva ------------------------------------------
@@ -2525,6 +2542,7 @@ function desenhar3D(cfg, layout, rGov){
   $("vazio").hidden = true;
   ULT.alt3d = G.altura || 0;
   ULT.pav3d = G.nPav || 1;
+  ULT.esc3d = G.nEsc || 0;
   if(!CAM.pronta) vistaGeral();
 
   const b = baseCam(), P = posCam();
@@ -2553,7 +2571,6 @@ function desenhar3D(cfg, layout, rGov){
   svg.setAttribute("viewBox", `${-meio} ${-meio} ${2*meio} ${2*meio}`);
   svg.setAttribute("preserveAspectRatio","xMidYMid slice");
   const g = document.createElementNS(SVGNS,"g");
-  svg.appendChild(g);
   view.k = 1;
 
   // claro no topo, escuro nas laterais — dá volume sem sombra calculada
@@ -2573,6 +2590,7 @@ function desenhar3D(cfg, layout, rGov){
     e.setAttribute("stroke-linejoin","round");
     g.appendChild(e);
   });
+  svg.appendChild(g);
   ULT.n3d = polis.length;
 }
 
@@ -2996,7 +3014,7 @@ function render(){
   fillPav3();            // também esconde a barra quando a prancha não tem pavimentos
   if(V3.modo && $("n3d")) $("n3d").textContent =
     `${fmt(ULT.n3d||0,0)} faces · ${fmt(CAM.dist,1)} m do pivô · `
-    + (ULT.pav3d > 1 ? `${ULT.pav3d} pavimentos, ${fmt(ULT.alt3d||0,1)} m de altura`
+    + (ULT.pav3d > 1 ? `${ULT.pav3d} pavimentos de pé, ${fmt(ULT.alt3d||0,1)} m · ${fmt(ULT.esc3d||0,0)} escoras montadas`
                      : `escora ${rGov?fmt(rGov.Hl,2):"—"} m`);
 
   // ---- resumo
@@ -4187,7 +4205,11 @@ function projetoAtual(cfg){
   // prancha nova sem pavimentos: o projeto do modelo anterior não pode ficar
   // guardado, ou a barra de pavimento continua na tela
   if(!PAVS.length){ ULT.proj = null; ULT.projChave = null; return null; }
-  const chave = JSON.stringify([cfg, ORC, num("reusoComp"), TEMPO, PAVS.length, PAVS[0].nome]);
+  // A cota do pavimento na tela não entra na chave: cada pavimento é calculado
+  // com a sua própria em cfgDoPav. Sem isto, trocar de andar refazia o projeto
+  // inteiro e cada degrau da seta custava meio segundo.
+  const {nivLaje, nivApoio, hLajeRef, H, ...fixo} = cfg;
+  const chave = JSON.stringify([fixo, ORC, num("reusoComp"), TEMPO, PAVS.length, PAVS[0].nome]);
   if(ULT.proj && ULT.projChave === chave) return ULT.proj;
   ULT.projChave = chave;
   return (ULT.proj = calcProjeto(cfg));
@@ -4748,16 +4770,16 @@ function fillPav3(){
   // deles apoia justamente no térreo, que é concretado sobre o solo
   const apoio = PAVS.find(P=>Math.abs(P.cota - alvo.P.base) < 0.02);
   $("pavTudo").checked = V3.tudo;
-  $("pavTudo").parentNode.title = V3.tudo
-    ? "pesado de girar: com o prédio todo a tela desenha dezenas de milhares de faces"
-    : "mostra todos os pavimentos de uma vez; fica pesado de girar";
-  $("pavNome").textContent = V3.tudo ? "O prédio inteiro" : alvo.P.nome;
-  $("pavSob").textContent = V3.tudo
-    ? `${R.bons.length} pavimentos · ${fmt(R.bons[R.bons.length-1].P.cota - R.bons[0].P.base, 1)} m de altura`
-    : (apoio ? `concretando a ${fmt(alvo.P.cota,2)} m · escorado sobre ${apoio.nome}`
-             : `concretando a ${fmt(alvo.P.cota,2)} m · pé-direito de ${fmt(alvo.P.pd,2)} m`);
-  $("pavSobe").disabled = V3.tudo || V3.topo >= R.bons.length-1;
-  $("pavDesce").disabled = V3.tudo || V3.topo <= 0;
+  $("pavTudo").parentNode.title = "desenha o escoramento em todos os pavimentos de uma vez, "
+    + "e não só no que está sendo concretado; serve para ver o total de equipamento, "
+    + "mas é pesado de girar";
+  $("pavNome").textContent = alvo.P.nome;
+  $("pavSob").textContent =
+      (apoio ? `concretando a ${fmt(alvo.P.cota,2)} m · escorado sobre ${apoio.nome}`
+             : `concretando a ${fmt(alvo.P.cota,2)} m · pé-direito de ${fmt(alvo.P.pd,2)} m`)
+    + (V3.topo > 0 ? ` · ${V3.topo} pavimento${V3.topo>1?"s":""} abaixo já concretado${V3.topo>1?"s":""}` : "");
+  $("pavSobe").disabled = V3.topo >= R.bons.length-1;
+  $("pavDesce").disabled = V3.topo <= 0;
   $("pavConta").textContent = `${V3.topo+1} de ${R.bons.length}`;
 
   const mostrados = R.bons.slice(de, ate+1);

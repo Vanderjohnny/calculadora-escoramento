@@ -73,8 +73,11 @@ leva escora — por onde a obra começa — e a seta de subir percorre o prédio
 construído. A planta 2D e o 3D mostram sempre o mesmo pavimento, com as mesmas caixas de peça
 (laje, vigas, pilares, placas, barrotes, longarinas, escoras).
 
-O desenho mostra **um pavimento de cada vez**, com o seu escoramento. A caixa **o prédio inteiro**
-abre todos de uma vez, para ver a obra montada.
+No 3D o prédio aparece **como ele está no dia em que aquele pavimento é concretado**: o que já
+subiu fica de pé, em concreto, sem escoramento — que já foi desmontado e levado para cima — e só
+o pavimento da vez aparece escorado. Subindo com a seta, o prédio cresce. A planta 2D mostra um
+pavimento de cada vez. A caixa **escorar todos os pavimentos** desenha o escoramento em todos de
+uma vez, para ver o total de equipamento montado; é pesado de girar.
 
 Logo abaixo do desenho, uma tira mostra o que está na tela: área de fôrma, metros de viga, apoios,
 placas, dias de montagem e desmontagem, e o custo — serviço, equipamento e consumível. Na gaveta
